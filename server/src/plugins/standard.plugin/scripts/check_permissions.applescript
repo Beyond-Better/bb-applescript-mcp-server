@@ -94,11 +94,11 @@ on run argv
 			end if
 		end try
 		
-		-- Build result entry as record
+		-- Build result entry as list of pairs for buildJSONObject
 		if errorMsg is not "" then
-			set resultEntry to {name:appName, hasPermission:hasPermission, status:permissionStatus, instructions:errorMsg}
+			set resultEntry to {{"name", appName}, {"hasPermission", hasPermission}, {"status", permissionStatus}, {"instructions", errorMsg}}
 		else
-			set resultEntry to {name:appName, hasPermission:hasPermission, status:permissionStatus}
+			set resultEntry to {{"name", appName}, {"hasPermission", hasPermission}, {"status", permissionStatus}}
 		end if
 		
 		set end of resultList to resultEntry
