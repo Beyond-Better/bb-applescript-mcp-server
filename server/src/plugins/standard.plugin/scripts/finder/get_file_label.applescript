@@ -12,7 +12,7 @@ on run argv
 	end if
 	
 	-- Parse JSON input
-	set filePaths to parseJSON(item 1 of argv)
+	set filePaths to parseValue(item 1 of argv)
 	
 	if (count of filePaths) is 0 then
 		return "Error: No valid paths provided"
@@ -46,10 +46,12 @@ on run argv
 					set labelName to "Gray"
 				end if
 				
-				set resultEntry to {path:filePath, labelIndex:labelIdx, labelName:labelName}
+				-- Build result entry as list of pairs for buildJSONObject
+				set resultEntry to {{"path", filePath}, {"labelIndex", labelIdx}, {"labelName", labelName}}
 				set end of resultList to resultEntry
 			on error errMsg
-				set resultEntry to {path:filePath, |error|:errMsg}
+				-- Build error entry as list of pairs for buildJSONObject
+				set resultEntry to {{"path", filePath}, {"error", errMsg}}
 				set end of resultList to resultEntry
 			end try
 		end repeat
