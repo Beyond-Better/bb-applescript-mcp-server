@@ -1,16 +1,26 @@
 -- Read Mail Script
 -- Search and retrieve email messages based on filters
--- Template variables (all JSON strings, parsed with parseValue): ${messageIds}, ${sender}, ${subject}, ${flags}, ${mailboxes}, ${sortBy}, ${includeBody}, ${maxResults}
+-- Template variables (all JSON strings, parsed with parseValue): ${messageIds}, ${sender}, ${subject}, ${flags}, ${accounts}, ${mailboxes}, ${sortBy}, ${includeBody}, ${maxResults}
 
 -- Parse JSON inputs
 set messageIds to parseValue(${messageIds})
 set senderFilter to parseValue(${sender})
 set subjectFilter to parseValue(${subject})
 set flagsFilter to parseValue(${flags})
+set accountNames to parseValue(${accounts})
 set mailboxNames to parseValue(${mailboxes})
 set sortByOption to parseValue(${sortBy})
 set shouldIncludeBody to parseValue(${includeBody})
 set maxResults to parseValue(${maxResults})
+
+-- TODO: Add support for qualified mailbox syntax (Option 2)
+-- Parse mailboxNames entries like 'account:mailbox' to allow precise targeting
+-- Example: 'work:inbox' searches only inbox in work account
+-- Example: 'inbox' (no prefix) searches inbox across all accounts
+
+-- TODO: Add support for account-mailbox pair objects (Option 3)
+-- Accept mailboxFilters parameter with structure: [{account: 'work', mailbox: 'inbox'}, ...]
+-- This provides maximum flexibility for complex cross-account queries
 
 tell application "Mail"
 	-- Initialize results
@@ -60,23 +70,37 @@ tell application "Mail"
 	if not searchComplete then
 		
 		-- Determine which mailboxes to search
+		-- Option 1: Simple independent filters (accounts AND mailboxes - Cartesian product)
 		set mailboxesToSearch to {}
+		
+		-- Filter accounts first
+		set accountsToSearch to {}
+		if accountNames is not missing value then
+			-- Filter by specific accounts
+			repeat with acc in accounts
+				set accName to name of acc
+				if accName is in accountNames then
+					set end of accountsToSearch to acc
+				end if
+			end repeat
+		else
+			-- Search all accounts
+			set accountsToSearch to accounts
+		end if
+		
+		-- Now filter mailboxes within the selected accounts
 		if mailboxNames is not missing value then
-			-- mailboxNames already parsed from JSON
-			
-			-- Find matching mailboxes
-			repeat with mbName in mailboxNames
-				repeat with acc in accounts
-					repeat with mb in mailboxes of acc
-						if name of mb is mbName then
-							set end of mailboxesToSearch to mb
-						end if
-					end repeat
+			-- Find matching mailboxes in selected accounts
+			repeat with acc in accountsToSearch
+				repeat with mb in mailboxes of acc
+					if name of mb is in mailboxNames then
+						set end of mailboxesToSearch to mb
+					end if
 				end repeat
 			end repeat
 		else
-			-- Search all mailboxes
-			repeat with acc in accounts
+			-- Search all mailboxes in selected accounts
+			repeat with acc in accountsToSearch
 				set mailboxesToSearch to mailboxesToSearch & mailboxes of acc
 			end repeat
 		end if
@@ -139,21 +163,67 @@ on buildMessageInfo(msg, includeBody)
 		set msgJunk to junk mail status of msg
 		
 		-- Build flags record
-		set msgFlags to {|read|:msgRead, flagged:msgFlagged, forwarded:msgForwarded, deleted:msgDeleted, junk:msgJunk}
+		-- Build flags as list of pairs for buildJSONObject
+		set msgFlags to {{"read", msgRead}, {"flagged", msgFlagged}, {"forwarded", msgForwarded}, {"deleted", msgDeleted}, {"junk", msgJunk}}
 		
-		-- Build base record
-		set info to {id:msgId, sender:msgSender, subject:msgSubject, |date|:msgDate as string, flags:msgFlags}
+		-- Build base info as list of pairs for buildJSONObject
+		set info to {{"id", msgId}, {"sender", msgSender}, {"subject", msgSubject}, {"date", msgDate as string}, {"flags", msgFlags}}
 		
 		if includeBody then
 			set msgBody to content of msg
-			set info to info & {body:msgBody}
+			set end of info to {"body", msgBody}
 		end if
 		
-		return info
+		-- Convert to JSON object format
+		return buildJSONObject(info)
 	end tell
 end buildMessageInfo
 
+-- Helper: Get filtered messages using native Mail.app 'whose' clause
+-- This is much more efficient than loading all messages and filtering manually
+on getFilteredMessages(mbox, senderFilter, subjectFilter, flagsFilter)
+	tell application "Mail"
+		set filteredMessages to messages of mbox
+		
+		-- Apply sender filter using 'whose' clause
+		if senderFilter is not missing value then
+			set filteredMessages to (filteredMessages whose sender contains senderFilter)
+		end if
+		
+		-- Apply subject filter using 'whose' clause
+		if subjectFilter is not missing value then
+			set filteredMessages to (filteredMessages whose subject contains subjectFilter)
+		end if
+		
+		-- Apply flag filters using 'whose' clause
+		if flagsFilter is not missing value then
+			try
+				set filterRead to |read| of flagsFilter
+				set filteredMessages to (filteredMessages whose read status is filterRead)
+			end try
+			
+			try
+				set filterFlagged to flagged of flagsFilter
+				set filteredMessages to (filteredMessages whose flagged status is filterFlagged)
+			end try
+			
+			try
+				set filterDeleted to deleted of flagsFilter
+				set filteredMessages to (filteredMessages whose deleted status is filterDeleted)
+			end try
+			
+			try
+				set filterJunk to junk of flagsFilter
+				set filteredMessages to (filteredMessages whose junk mail status is filterJunk)
+			end try
+		end if
+		
+		return filteredMessages
+	end tell
+end getFilteredMessages
+
 -- Helper: Check if message matches flag filters
+-- Note: This is kept for backwards compatibility but is no longer used in the main search
 on matchesFlags(msg, flagsFilter)
 	tell application "Mail"
 		-- flagsFilter is now a parsed AppleScript record

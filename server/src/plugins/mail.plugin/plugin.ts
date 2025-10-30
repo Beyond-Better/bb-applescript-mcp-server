@@ -2,6 +2,11 @@
  * Apple Mail Plugin
  * Provides tools for reading, organizing, and managing emails via Mail.app
  * 
+ * Current Tools:
+ * - read_mail: Search and retrieve email messages with account/mailbox filtering
+ * - get_mail_structure: List accounts and mailboxes in hierarchical structure
+ * - mark_mail: Mark messages with flags (read/unread, flagged, deleted, junk)
+ * 
  * TODO: Future tools to implement:
  * - send_mail: Compose and send emails with attachments
  * - move_mail: Move messages between mailboxes
@@ -10,6 +15,10 @@
  * - reply_to_mail: Create reply messages
  * - forward_mail: Forward messages
  * - get_mail_attachments: List or save attachments from messages
+ * 
+ * TODO: Future filtering enhancements (see inline comments):
+ * - Option 2: Qualified mailbox syntax (e.g., 'work:inbox', 'personal:customers')
+ * - Option 3: Account-mailbox pair objects for maximum precision
  */
 
 // INJECT_STATIC_IMPORT: ./scripts/index.ts
@@ -42,10 +51,14 @@ const readMailInputSchema = {
     })
     .optional()
     .describe('Filter by message flags/status'),
+  accounts: z
+    .array(z.string())
+    .optional()
+    .describe('Filter by specific account names (searches all accounts if not specified). Results include messages from (any specified account) AND (any specified mailbox) - Cartesian product.'),
   mailboxes: z
     .array(z.string())
     .optional()
-    .describe('Filter by specific mailbox names (searches all mailboxes if not specified)'),
+    .describe('Filter by specific mailbox names (searches all mailboxes if not specified). Results include messages from (any specified account) AND (any specified mailbox) - Cartesian product.'),
   sortBy: z
     .enum(['date-newest', 'date-oldest', 'sender', 'subject'])
     .optional()
@@ -64,11 +77,11 @@ const readMailInputSchema = {
   timeout: z.number().optional().describe('Timeout in milliseconds'),
 } as const;
 
-const getMailboxesInputSchema = {
+const getMailStructureInputSchema = {
   accountName: z
     .string()
     .optional()
-    .describe('Filter mailboxes by specific account name (returns all accounts if not specified)'),
+    .describe('Filter by specific account name (returns all accounts if not specified)'),
   timeout: z.number().optional().describe('Timeout in milliseconds'),
 } as const;
 
@@ -99,6 +112,7 @@ type ReadMailArgs = {
     forwarded?: boolean;
     deleted?: boolean;
   };
+  accounts?: string[];
   mailboxes?: string[];
   sortBy?: 'date-newest' | 'date-oldest' | 'sender' | 'subject';
   includeBody?: boolean;
@@ -106,7 +120,7 @@ type ReadMailArgs = {
   timeout?: number;
 };
 
-type GetMailboxesArgs = {
+type GetMailStructureArgs = {
   accountName?: string;
   timeout?: number;
 };
@@ -151,6 +165,7 @@ export default {
             sender: args.sender,
             subject: args.subject,
             flags: args.flags,
+            accounts: args.accounts,
             mailboxes: args.mailboxes,
             sortBy: args.sortBy,
             includeBody: args.includeBody,
@@ -160,12 +175,23 @@ export default {
           // Enforce hard limit on results
           const maxResults = Math.min(args.maxResults || 50, 100);
 
+          // TODO: Add support for qualified mailbox syntax (Option 2)
+          // Example: 'account:mailbox' format like 'work:inbox' or 'personal:customers'
+          // This would allow precise cross-account mailbox targeting:
+          //   mailboxes: ['work:inbox', 'personal:customers', 'inbox']
+          // Last entry 'inbox' would search across all accounts
+          
+          // TODO: Add support for account-mailbox pair objects (Option 3)
+          // Example: mailboxFilters: [{ account: 'work', mailbox: 'inbox' }, ...]
+          // This provides maximum flexibility but is more verbose
+
           // Prepare template variables (templateRenderer JSON.stringifies them)
           const variables: Record<string, any> = {
             messageIds: args.messageIds ?? null,
             sender: args.sender ?? null,
             subject: args.subject ?? null,
             flags: args.flags ?? null,
+            accounts: args.accounts ?? null,
             mailboxes: args.mailboxes ?? null,
             sortBy: args.sortBy || 'date-newest',
             includeBody: args.includeBody || false,
@@ -233,19 +259,19 @@ export default {
       },
     );
 
-    // Register get_mailboxes tool
+    // Register get_mail_structure tool
     toolRegistry.registerTool(
-      'get_mailboxes',
+      'get_mail_structure',
       {
-        title: 'Get Mailboxes',
+        title: 'Get Mail Structure',
         description:
-          'List all available mailboxes/folders across all accounts or for a specific account.',
+          'List all available email accounts and their mailboxes/folders in a hierarchical structure. Optionally filter by specific account.',
         category: 'Mail',
-        inputSchema: getMailboxesInputSchema,
+        inputSchema: getMailStructureInputSchema,
       },
-      async (args: GetMailboxesArgs) => {
+      async (args: GetMailStructureArgs) => {
         try {
-          logger.info('Getting mailboxes:', { accountName: args.accountName });
+          logger.info('Getting mail structure:', { accountName: args.accountName });
 
           // Prepare template variables (templateRenderer JSON.stringifies them)
           const variables: Record<string, any> = {
@@ -254,7 +280,7 @@ export default {
 
           const result = await findAndExecuteScript(
             pluginDir,
-            'get_mailboxes',
+            'get_mail_structure',
             variables,
             undefined,
             args.timeout,
@@ -299,7 +325,7 @@ export default {
             };
           }
         } catch (error) {
-          logger.error('Failed to get mailboxes:', error);
+          logger.error('Failed to get mail structure:', error);
           return {
             content: [
               {
@@ -411,6 +437,6 @@ export default {
       },
     );
 
-    logger.info('Mail plugin initialized with tools: read_mail, get_mailboxes, mark_mail');
+    logger.info('Mail plugin initialized with tools: read_mail, get_mail_structure, mark_mail');
   },
 } as AppPlugin;
