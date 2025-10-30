@@ -2,7 +2,7 @@
 	Reveal in Finder
 	Reveals and selects one or more files/folders in Finder
 	
-	Parameters:
+	Parameters (all JSON strings):
 		pathsJson - JSON array of file/folder paths
 *)
 
@@ -11,30 +11,10 @@ on run argv
 		return "Error: Missing required parameter (paths)"
 	end if
 	
-	set pathsJson to item 1 of argv
+	-- Parse JSON input
+	set filePaths to parseJSON(item 1 of argv)
 	
-	-- Parse paths from JSON
-	set filePaths to {}
-	if pathsJson contains "," then
-		set AppleScript's text item delimiters to ","
-		set filePaths to text items of pathsJson
-		set AppleScript's text item delimiters to ""
-	else if pathsJson is not "" and pathsJson is not "[]" then
-		set filePaths to {pathsJson}
-	end if
-	
-	-- Clean paths
-	set cleanPaths to {}
-	repeat with filePath in filePaths
-		set filePath to filePath as text
-		if filePath starts with "[" then set filePath to text 2 thru -2 of filePath
-		if filePath starts with "\"" then set filePath to text 2 thru -2 of filePath
-		if filePath is not "" then
-			set end of cleanPaths to filePath
-		end if
-	end repeat
-	
-	if (count of cleanPaths) is 0 then
+	if (count of filePaths) is 0 then
 		return "Error: No valid paths provided"
 	end if
 	
@@ -44,8 +24,7 @@ on run argv
 	tell application "Finder"
 		activate
 		
-		repeat with filePath in cleanPaths
-			set filePath to filePath as text
+		repeat with filePath in filePaths
 			try
 				set fileItem to POSIX file filePath as alias
 				reveal fileItem
@@ -58,13 +37,12 @@ on run argv
 		end repeat
 	end tell
 	
-	-- Build result
-	set resultMsg to "Revealed " & (count of revealedItems) & " of " & (count of cleanPaths) & " items in Finder"
+	-- Return using buildJSONObject
+	set resultData to {{"revealedCount", count of revealedItems}, {"totalCount", count of filePaths}, {"message", "Revealed " & (count of revealedItems) & " of " & (count of filePaths) & " items in Finder"}}
+	
 	if (count of failedPaths) > 0 then
-		set AppleScript's text item delimiters to ", "
-		set resultMsg to resultMsg & ". Failed: " & (failedPaths as text)
-		set AppleScript's text item delimiters to ""
+		set end of resultData to {"failedPaths", failedPaths}
 	end if
 	
-	return resultMsg
+	return buildJSONObject(resultData)
 end run

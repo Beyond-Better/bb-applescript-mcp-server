@@ -2,7 +2,7 @@
 	Check AppleScript Automation Permissions
 	Checks if automation permissions are granted for specified applications
 	
-	Parameters:
+	Parameters (all JSON strings):
 		appsJson - JSON array of application names to check (optional)
 		If not provided, checks common applications: Finder, BBEdit, Terminal
 *)
@@ -12,26 +12,13 @@ on run argv
 	
 	-- Parse apps list if provided
 	if (count of argv) > 0 then
-		set appsJson to item 1 of argv
-		-- Simple JSON parsing - extract app names
-		-- In production, use more robust JSON parsing
-		if appsJson contains "," then
-			set AppleScript's text item delimiters to ","
-			set appsToCheck to text items of appsJson
-			set AppleScript's text item delimiters to ""
-		else if appsJson is not "" and appsJson is not "[]" then
-			set appsToCheck to {appsJson}
-		end if
+		set appsToCheck to parseJSON(item 1 of argv)
 	end if
 	
 	set resultList to {}
 	set hasAllPermissions to true
 	
 	repeat with appName in appsToCheck
-		set appName to appName as text
-		-- Remove quotes and brackets if present
-		if appName starts with "[" then set appName to text 2 thru -2 of appName
-		if appName starts with "\"" then set appName to text 2 thru -2 of appName
 		
 		set permissionStatus to "unknown"
 		set hasPermission to false
@@ -107,12 +94,12 @@ on run argv
 			end if
 		end try
 		
-		-- Build result entry
-		set resultEntry to "{\"name\":\"" & appName & "\",\"hasPermission\":" & (hasPermission as text) & ",\"status\":\"" & permissionStatus & "\""
+		-- Build result entry as record
 		if errorMsg is not "" then
-			set resultEntry to resultEntry & ",\"instructions\":\"" & errorMsg & "\""
+			set resultEntry to {name:appName, hasPermission:hasPermission, status:permissionStatus, instructions:errorMsg}
+		else
+			set resultEntry to {name:appName, hasPermission:hasPermission, status:permissionStatus}
 		end if
-		set resultEntry to resultEntry & "}"
 		
 		set end of resultList to resultEntry
 		
@@ -121,10 +108,6 @@ on run argv
 		end if
 	end repeat
 	
-	-- Build JSON result
-	set AppleScript's text item delimiters to ","
-	set resultJson to "{\"hasPermissions\":" & (hasAllPermissions as text) & ",\"applications\":[" & (resultList as text) & "]}"
-	set AppleScript's text item delimiters to ""
-	
-	return resultJson
+	-- Return using buildJSONObject
+	return buildJSONObject({{"hasPermissions", hasAllPermissions}, {"applications", resultList}})
 end run

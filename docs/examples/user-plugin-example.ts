@@ -4,6 +4,13 @@
  * This demonstrates how users can create custom plugins that work
  * with the AppleScript MCP Server, even when running from JSR.
  * 
+ * IMPORTANT: This example shows TWO approaches:
+ * 1. Inline scripts (simple, but no auto-injected JSON utilities)
+ * 2. Script files (recommended, with automatic JSON utilities)
+ * 
+ * For production plugins, use approach #2 with script files.
+ * See docs/JSON-STANDARDIZATION.md for complete guidance.
+ * 
  * To use this plugin:
  * 1. Save this file to a local directory (e.g., ~/my-applescript-plugins/mail.plugin.ts)
  * 2. Set PLUGINS_DISCOVERY_PATHS environment variable to that directory
@@ -43,39 +50,39 @@ export default {
 
 		logger.info('Initializing Mail Tools plugin');
 
-		// Register send_email tool
+		// Register send_email tool (APPROACH 1: Inline script - simple but limited)
+		// WARNING: Inline scripts don't get auto-injected JSON utilities
+		// For production, use APPROACH 2 with script files instead
 		toolRegistry.registerTool(
-			'send_email',
+			'send_email_simple',
 			{
-				title: 'Send Email',
-				description: 'Create and send an email via Mail.app',
+				title: 'Send Email (Simple)',
+				description: 'Create and send an email via Mail.app using inline script',
 				category: 'Mail',
 				inputSchema: {
 					to: z.string().email().describe('Recipient email address'),
 					subject: z.string().describe('Email subject'),
 					body: z.string().describe('Email body text'),
-					cc: z.array(z.string().email()).optional().describe('CC recipients'),
-					attachments: z.array(z.string()).optional().describe('File paths to attach'),
 				},
 			},
 			async (args) => {
 				try {
-					logger.info('Sending email', { to: args.to, subject: args.subject });
+					logger.info('Sending email (simple)', { to: args.to, subject: args.subject });
 
-					// Build AppleScript to send email
+					// WARNING: Manual string interpolation is vulnerable to injection
+					// This is only safe for trusted input
+					// For production, use script files with proper JSON parsing
 					const script = `
 						tell application "Mail"
-							set newMessage to make new outgoing message with properties {subject:"${args.subject}", content:"${args.body}"}
+							set newMessage to make new outgoing message with properties {subject:"${args.subject.replace(/"/g, '\\"')}", content:"${args.body.replace(/"/g, '\\"')}"}
 							tell newMessage
 								make new to recipient at end of to recipients with properties {address:"${args.to}"}
-								${args.cc ? args.cc.map((email: string) => `make new cc recipient at end of cc recipients with properties {address:"${email}"}`).join('\n\t\t\t\t\t\t\t\t') : ''}
 								send
 							end tell
 						end tell
 						return "Email sent successfully"
 					`;
 
-					// Execute AppleScript using runAppleScript utility
 					const result: AppleScriptResult = await runAppleScript({
 						script,
 						inline: true,
@@ -93,7 +100,6 @@ export default {
 											message: 'Email sent successfully',
 											to: args.to,
 											subject: args.subject,
-											result: result.output,
 										},
 										null,
 										2,
@@ -103,7 +109,6 @@ export default {
 						};
 					} else {
 						const errorMsg = result.error?.message || 'Unknown error';
-						logger.error('Failed to send email', new Error(errorMsg));
 						return {
 							content: [
 								{
@@ -112,7 +117,6 @@ export default {
 										{
 											success: false,
 											error: errorMsg,
-											details: result.error?.details,
 										},
 										null,
 										2,
@@ -123,7 +127,6 @@ export default {
 						};
 					}
 				} catch (error) {
-					logger.error('Failed to send email', error as Error);
 					return {
 						content: [
 							{
@@ -136,6 +139,21 @@ export default {
 				}
 			},
 		);
+
+		// NOTE: For APPROACH 2 with script files and automatic JSON utilities:
+		// 1. Create scripts/send_email.applescript with parseJSON() calls
+		// 2. Use findAndExecuteScript() which auto-injects JSON utilities
+		// 3. Pass raw values (not JSON.stringify) - templateRenderer handles it
+		// Example:
+		// const result = await findAndExecuteScript(
+		//   pluginDir,
+		//   'send_email',
+		//   { to: args.to, subject: args.subject, body: args.body },
+		//   undefined,
+		//   timeout,
+		//   logger
+		// );
+		// See docs/JSON-STANDARDIZATION.md for complete examples
 
 		// Register check_mail tool
 		toolRegistry.registerTool(

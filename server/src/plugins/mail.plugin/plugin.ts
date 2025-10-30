@@ -160,13 +160,13 @@ export default {
           // Enforce hard limit on results
           const maxResults = Math.min(args.maxResults || 50, 100);
 
-          // Prepare template variables
+          // Prepare template variables (templateRenderer JSON.stringifies them)
           const variables: Record<string, any> = {
-            messageIds: args.messageIds ? JSON.stringify(args.messageIds) : null,
-            sender: args.sender || null,
-            subject: args.subject || null,
-            flags: args.flags ? JSON.stringify(args.flags) : null,
-            mailboxes: args.mailboxes ? JSON.stringify(args.mailboxes) : null,
+            messageIds: args.messageIds ?? null,
+            sender: args.sender ?? null,
+            subject: args.subject ?? null,
+            flags: args.flags ?? null,
+            mailboxes: args.mailboxes ?? null,
             sortBy: args.sortBy || 'date-newest',
             includeBody: args.includeBody || false,
             maxResults: maxResults,
@@ -247,8 +247,9 @@ export default {
         try {
           logger.info('Getting mailboxes:', { accountName: args.accountName });
 
+          // Prepare template variables (templateRenderer JSON.stringifies them)
           const variables: Record<string, any> = {
-            accountName: args.accountName || null,
+            accountName: args.accountName ?? null,
           };
 
           const result = await findAndExecuteScript(
@@ -342,8 +343,9 @@ export default {
           //   return { content: [{ type: 'text', text: 'Action cancelled by user' }] };
           // }
 
+          // Prepare template variables (templateRenderer JSON.stringifies them)
           const variables: Record<string, any> = {
-            messageIds: JSON.stringify(args.messageIds),
+            messageIds: args.messageIds,
             flagType: args.flagType,
             flagValue: args.flagValue,
           };

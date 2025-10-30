@@ -49,25 +49,33 @@ src/plugins/mail.plugin/
 Edit `scripts/send_email.applescript`:
 
 ```applescript
--- Template variables: ${to}, ${subject}, ${body}
+-- Template variables (all JSON strings): ${to}, ${subject}, ${body}
+
+-- ⚠️ CRITICAL: Parse JSON inputs OUTSIDE tell blocks!
+set recipient to parseValue(${to})
+set emailSubject to parseValue(${subject})
+set emailBody to parseValue(${body})
+
+-- THEN use the parsed values in tell block
 tell application "Mail"
+    
     -- Create new message
-    set newMessage to make new outgoing message with properties {subject:${subject}, content:${body}, visible:true}
+    set newMessage to make new outgoing message with properties {subject:emailSubject, content:emailBody, visible:true}
     
     -- Add recipient
     tell newMessage
-        make new to recipient with properties {address:${to}}
+        make new to recipient with properties {address:recipient}
     end tell
     
-    -- Return success (user must click Send manually for safety)
-    return "{\"success\":true,\"message\":\"Email created and ready to send\"}"
+    -- Return using buildJSONObject
+    return buildJSONObject({{"success", true}, {"message", "Email created and ready to send"}})
 end tell
 ```
 
 **Key points:**
-- Use `${variableName}` for template variables
-- Return JSON for structured results
-- The script loader automatically handles type conversion and escaping
+- ALL template variables are JSON strings - use `parseJSON()` to parse them
+- Use `buildJSONObject()` or `buildJSONArray()` for return values
+- JSON utilities are automatically injected - no need to define them
 
 ### Step 3: Create the Plugin File
 
@@ -210,12 +218,24 @@ Send an email to test@example.com with subject "Hello" and body "Testing!"
 
 ## Understanding Template Variables
 
-The `findAndExecuteScript` function automatically converts JavaScript values to AppleScript:
+**IMPORTANT**: All template variables are JSON strings that must be parsed in AppleScript.
+
+The `findAndExecuteScript` function automatically JSON.stringifies all template variables. Your AppleScript must use `parseJSON()` to parse them:
+
+```applescript
+-- Parse JSON inputs (auto-injected function)
+set myValue to parseJSON(${variableName})
+```
+
+The JSON parsing utilities are automatically injected into every script at runtime. See [JSON-STANDARDIZATION.md](./JSON-STANDARDIZATION.md) for complete details.
+
+### Type Conversion Examples
 
 ### String Variables
 ```applescript
 -- Template: ${name}
 -- JavaScript: { name: "John Doe" }
+-- In script: set userName to parseJSON(${name})
 -- Result: "John Doe"
 ```
 
@@ -223,6 +243,7 @@ The `findAndExecuteScript` function automatically converts JavaScript values to 
 ```applescript
 -- Template: ${recipients}
 -- JavaScript: { recipients: ["alice@example.com", "bob@example.com"] }
+-- In script: set recipientList to parseJSON(${recipients})
 -- Result: {"alice@example.com", "bob@example.com"}
 ```
 
@@ -230,6 +251,7 @@ The `findAndExecuteScript` function automatically converts JavaScript values to 
 ```applescript
 -- Template: ${settings}
 -- JavaScript: { settings: { theme: "dark", size: 14 } }
+-- In script: set settingsRecord to parseJSON(${settings})
 -- Result: {theme:"dark", size:14}
 ```
 
@@ -237,6 +259,8 @@ The `findAndExecuteScript` function automatically converts JavaScript values to 
 ```applescript
 -- Template: ${enabled} and ${count}
 -- JavaScript: { enabled: true, count: 42 }
+-- In script: set isEnabled to parseJSON(${enabled})
+-- In script: set itemCount to parseJSON(${count})
 -- Result: true and 42
 ```
 
@@ -244,6 +268,7 @@ The `findAndExecuteScript` function automatically converts JavaScript values to 
 ```applescript
 -- Template: ${optional}
 -- JavaScript: { optional: null }
+-- In script: set optionalValue to parseJSON(${optional})
 -- Result: missing value
 ```
 

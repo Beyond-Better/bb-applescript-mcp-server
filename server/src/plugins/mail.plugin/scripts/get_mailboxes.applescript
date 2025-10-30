@@ -1,9 +1,10 @@
 -- Get Mailboxes Script
 -- List all available mailboxes/folders
--- Template variables: ${accountName}
+-- Template variables (all JSON strings, parsed with parseJSON): ${accountName}
 
 tell application "Mail"
-	set accountFilter to ${accountName}
+	-- Parse JSON input
+	set accountFilter to parseJSON(${accountName})
 	
 	-- Initialize results
 	set mailboxesList to {}
@@ -24,57 +25,23 @@ tell application "Mail"
 		end if
 	end repeat
 	
-	-- Build JSON result
-	set resultJson to "{\"success\":true,\"count\":" & (count of mailboxesList) & ",\"mailboxes\":["
-	set first to true
+	-- Build mailbox data for JSON
+	set mailboxData to {}
 	repeat with mbInfo in mailboxesList
-		if not first then
-			set resultJson to resultJson & ","
-		else
-			set first to false
-		end if
-		set resultJson to resultJson & mbInfo
+		set end of mailboxData to mbInfo
 	end repeat
-	set resultJson to resultJson & "]}"
 	
-	return resultJson
+	-- Return using buildJSONObject
+	return buildJSONObject({{"success", true}, {"count", count of mailboxesList}, {"mailboxes", mailboxData}})
 end tell
 
--- Helper: Build mailbox info JSON
+-- Helper: Build mailbox info record
 on buildMailboxInfo(mb, accountName)
 	tell application "Mail"
 		set mbName to name of mb
 		set mbUnreadCount to unread count of mb
 		
-		-- Escape special characters for JSON
-		set mbNameEscaped to my escapeJson(mbName)
-		set accountNameEscaped to my escapeJson(accountName)
-		
-		set info to "{" & ""
-		set info to info & "\"name\":\"" & mbNameEscaped & "\","
-		set info to info & "\"account\":\"" & accountNameEscaped & "\","
-		set info to info & "\"unreadCount\":" & mbUnreadCount & ""
-		set info to info & "}"
-		
-		return info
+		-- Return as AppleScript record (will be converted to JSON by buildJSONObject)
+		return {name:mbName, account:accountName, unreadCount:mbUnreadCount}
 	end tell
 end buildMailboxInfo
-
--- Helper: Escape special characters for JSON
-on escapeJson(txt)
-	set txt to my replaceText(txt, "\\", "\\\\")
-	set txt to my replaceText(txt, "\"", "\\\"")
-	set txt to my replaceText(txt, return, "\\n")
-	set txt to my replaceText(txt, tab, "\\t")
-	return txt
-end escapeJson
-
--- Helper: Replace text
-on replaceText(theText, oldText, newText)
-	set AppleScript's text item delimiters to oldText
-	set textItems to text items of theText
-	set AppleScript's text item delimiters to newText
-	set theText to textItems as text
-	set AppleScript's text item delimiters to ""
-	return theText
-end replaceText

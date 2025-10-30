@@ -236,6 +236,8 @@ toolRegistry.registerTool(
 );
 ```
 
+**Note**: For simple inline scripts, you don't get the auto-injected JSON utilities. For more complex scripts, use `findAndExecuteScript` which automatically injects JSON parsing/encoding functions.
+
 ### 2. Application Control
 
 ```typescript
@@ -263,17 +265,58 @@ toolRegistry.registerTool(
 
 ### 3. Using Script Files
 
-You can also load scripts from files:
+For complex scripts, use `findAndExecuteScript` which automatically handles JSON utilities:
 
 ```typescript
-import { dirname, fromFileUrl, join } from '@std/path';
+import { findAndExecuteScript } from './path/to/scriptLoader.ts';
+import { dirname, fromFileUrl } from '@std/path';
 
 const pluginDir = dirname(fromFileUrl(import.meta.url));
-const scriptPath = join(pluginDir, 'scripts', 'my_script.applescript');
 
-const scriptContent = await Deno.readTextFile(scriptPath);
-// ... execute script
+// Template-based script (variables are automatically JSON.stringified)
+const result = await findAndExecuteScript(
+  pluginDir,
+  'my_script',  // Looks for my_script.applescript
+  {
+    name: "My Value",
+    items: ["a", "b", "c"],
+    settings: { enabled: true }
+  },
+  undefined,  // No args
+  30000,      // Timeout
+  logger
+);
+
+// Argument-based script (must JSON.stringify args)
+const resultWithArgs = await findAndExecuteScript(
+  pluginDir,
+  'my_script',
+  undefined,  // No template variables
+  [JSON.stringify(args.paths), JSON.stringify(args.value)],  // Args
+  30000,
+  logger
+);
 ```
+
+**In your AppleScript** (scripts/my_script.applescript):
+```applescript
+-- Template variables are auto-parsed
+set myName to parseJSON(${name})
+set myItems to parseJSON(${items})
+set mySettings to parseJSON(${settings})
+
+-- Or for argument-based:
+on run argv
+  set paths to parseJSON(item 1 of argv)
+  set value to parseJSON(item 2 of argv)
+  -- ...
+end run
+
+-- Return using buildJSONObject or buildJSONArray
+return buildJSONObject({{"success", true}, {"result", myResult}})
+```
+
+See [JSON-STANDARDIZATION.md](./JSON-STANDARDIZATION.md) for complete documentation.
 
 ## Advanced Features
 

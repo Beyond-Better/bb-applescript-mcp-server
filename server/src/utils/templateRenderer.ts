@@ -65,50 +65,45 @@ export function toAppleScriptRecord(obj: Record<string, any>): string {
 
 /**
  * Tagged template literal function for AppleScript
- * Automatically escapes interpolated values and converts arrays/objects
+ * All values are JSON-stringified for consistent parsing in AppleScript
  *
  * Usage:
  * const name = "My Notebook";
  * const items = ["file1.txt", "file2.txt"];
  * const code = script`
  *   tell application "BBEdit"
- *     make new notebook with properties {name:${name}}
- *     repeat with itemPath in ${items}
+ *     set nameValue to parseJSON(${name})
+ *     set itemsValue to parseJSON(${items})
+ *     make new notebook with properties {name:nameValue}
+ *     repeat with itemPath in itemsValue
  *       open itemPath
  *     end repeat
  *   end tell
  * `;
+ *
+ * Note: All interpolated values are JSON strings that must be parsed with parseJSON() in AppleScript
  */
 export function script(strings: TemplateStringsArray, ...values: any[]): string {
   return strings.reduce((result, str, i) => {
     const value = values[i];
     if (value === undefined) return result + str;
 
-    // Handle different types
-    if (Array.isArray(value)) {
-      return result + str + toAppleScriptList(value);
-    } else if (typeof value === 'object' && value !== null) {
-      return result + str + toAppleScriptRecord(value);
-    } else if (typeof value === 'string') {
-      return result + str + escapeAppleScriptString(value);
-    } else if (typeof value === 'number' || typeof value === 'boolean') {
-      return result + str + String(value);
-    } else if (value === null || value === undefined) {
-      return result + str + 'missing value';
-    } else {
-      // Fallback: convert to string and escape
-      return result + str + escapeAppleScriptString(String(value));
-    }
+    // All values are JSON-stringified and escaped for AppleScript string literals
+    const jsonString = JSON.stringify(value);
+    return result + str + escapeAppleScriptString(jsonString);
   }, '');
 }
 
 /**
  * Renders a template string with variables
  * Alternative to tagged template literals for dynamic template loading
+ * All values are JSON-stringified for consistent parsing in AppleScript
  *
  * @param template - Template string with ${variable} markers
  * @param variables - Object with variable values
- * @returns Rendered AppleScript code
+ * @returns Rendered AppleScript code with JSON-stringified values
+ *
+ * Note: All interpolated values are JSON strings that must be parsed with parseJSON() in AppleScript
  */
 export function renderTemplate(template: string, variables: Record<string, any>): string {
   return template.replace(/\$\{([^}]+)\}/g, (match, varName) => {
@@ -117,19 +112,8 @@ export function renderTemplate(template: string, variables: Record<string, any>)
       throw new Error(`Template variable '${varName}' is not defined`);
     }
 
-    // Handle different types
-    if (Array.isArray(value)) {
-      return toAppleScriptList(value);
-    } else if (typeof value === 'object' && value !== null) {
-      return toAppleScriptRecord(value);
-    } else if (typeof value === 'string') {
-      return escapeAppleScriptString(value);
-    } else if (typeof value === 'number' || typeof value === 'boolean') {
-      return String(value);
-    } else if (value === null) {
-      return 'missing value';
-    } else {
-      return escapeAppleScriptString(String(value));
-    }
+    // All values are JSON-stringified and escaped for AppleScript string literals
+    const jsonString = JSON.stringify(value);
+    return escapeAppleScriptString(jsonString);
   });
 }

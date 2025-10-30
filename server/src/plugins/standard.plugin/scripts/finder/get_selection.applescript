@@ -11,7 +11,7 @@ on run
 			set selectedItems to selection
 			
 			if (count of selectedItems) is 0 then
-				return "{\"count\":0,\"items\":[]}"
+				return buildJSONObject({{"count", 0}, {"items", {}}})
 			end if
 			
 			set resultList to {}
@@ -28,22 +28,12 @@ on run
 					set isFolder to true
 				end try
 				
-				set resultEntry to "{" & ¬
-					"\"path\":\"" & itemPath & "\"," & ¬
-					"\"name\":\"" & itemName & "\"," & ¬
-					"\"kind\":\"" & itemKind & "\"," & ¬
-					"\"isFolder\":" & (isFolder as text) & ¬
-					"}"
-				
+				set resultEntry to {path:itemPath, name:itemName, kind:itemKind, isFolder:isFolder}
 				set end of resultList to resultEntry
 			end repeat
 			
-			-- Build JSON result
-			set AppleScript's text item delimiters to ","
-			set resultJson to "{\"count\":" & (count of resultList) & ",\"items\":[" & (resultList as text) & "]}"
-			set AppleScript's text item delimiters to ""
-			
-			return resultJson
+			-- Return using buildJSONObject
+			return buildJSONObject({{"count", count of resultList}, {"items", resultList}})
 		end tell
 		
 	on error errMsg number errNum

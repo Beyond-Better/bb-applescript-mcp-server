@@ -116,12 +116,12 @@ export default {
         try {
           logger.info(`Creating BBEdit notebook: ${args.name}`);
 
-          // Prepare template variables
+          // Prepare template variables (templateRenderer JSON.stringifies them)
           const defaultLocation = expandHomePath('~/Documents/BBEdit Notebooks/');
           const variables: Record<string, any> = {
             name: args.name,
             location: args.location ? expandHomePath(args.location) : defaultLocation,
-            contentJson: args.content ? JSON.stringify(args.content) : '[]',
+            contentJson: args.content ?? [],
             shouldOpen: args.open !== false, // Default to true
           };
 
@@ -202,12 +202,12 @@ export default {
         try {
           logger.info(`Creating BBEdit project: ${args.name}`);
 
-          // Prepare template variables
+          // Prepare template variables (templateRenderer JSON.stringifies them)
           const defaultLocation = expandHomePath('~/Documents/BBEdit Projects/');
           const variables: Record<string, any> = {
             name: args.name,
             location: args.location ? expandHomePath(args.location) : defaultLocation,
-            itemsJson: args.items ? JSON.stringify(args.items) : '[]',
+            itemsJson: args.items ?? [],
             settingsJson: args.settings ?? null, // null becomes 'missing value' in AppleScript
             shouldOpen: args.open !== false, // Default to true
           };

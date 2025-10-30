@@ -1,14 +1,12 @@
 -- Mark Mail Script
 -- Mark messages with specific flags
--- Template variables: ${messageIds}, ${flagType}, ${flagValue}
+-- Template variables (all JSON strings, parsed with parseJSON): ${messageIds}, ${flagType}, ${flagValue}
 
 tell application "Mail"
-	set messageIdsJson to ${messageIds}
-	set flagType to ${flagType}
-	set flagValue to ${flagValue}
-	
-	-- Parse message IDs from JSON array
-	set messageIds to my parseJsonArray(messageIdsJson)
+	-- Parse JSON inputs
+	set messageIds to parseJSON(${messageIds})
+	set flagType to parseJSON(${flagType})
+	set flagValue to parseJSON(${flagValue})
 	
 	-- Track results
 	set successCount to 0
@@ -55,49 +53,12 @@ tell application "Mail"
 		end try
 	end repeat
 	
-	-- Build JSON result
-	set resultJson to "{\"success\":true,"
-	set resultJson to resultJson & "\"processedCount\":" & (count of messageIds) & ","
-	set resultJson to resultJson & "\"successCount\":" & successCount & ","
-	set resultJson to resultJson & "\"failedCount\":" & (count of failedIds) & ","
-	set resultJson to resultJson & "\"flagType\":\"" & flagType & "\","
-	set resultJson to resultJson & "\"flagValue\":" & flagValue
+	-- Build result using buildJSONObject
+	set resultPairs to {{"success", true}, {"processedCount", count of messageIds}, {"successCount", successCount}, {"failedCount", count of failedIds}, {"flagType", flagType}, {"flagValue", flagValue}}
 	
 	if (count of failedIds) > 0 then
-		set resultJson to resultJson & ",\"failedIds\":["
-		set first to true
-		repeat with failedId in failedIds
-			if not first then
-				set resultJson to resultJson & ","
-			else
-				set first to false
-			end if
-			set resultJson to resultJson & "\"" & failedId & "\""
-		end repeat
-		set resultJson to resultJson & "]"
+		set end of resultPairs to {"failedIds", failedIds}
 	end if
 	
-	set resultJson to resultJson & "}"
-	
-	return resultJson
+	return buildJSONObject(resultPairs)
 end tell
-
--- Helper: Parse JSON array (simple implementation)
-on parseJsonArray(jsonStr)
-	-- Remove brackets and quotes, split by comma
-	set jsonStr to text 2 thru -2 of jsonStr -- Remove [ ]
-	set AppleScript's text item delimiters to "\",\""
-	set items to text items of jsonStr
-	set AppleScript's text item delimiters to ""
-	
-	set result to {}
-	repeat with item in items
-		-- Remove leading/trailing quotes
-		set cleanItem to item
-		if cleanItem starts with "\"" then set cleanItem to text 2 thru -1 of cleanItem
-		if cleanItem ends with "\"" then set cleanItem to text 1 thru -2 of cleanItem
-		set end of result to cleanItem
-	end repeat
-	
-	return result
-end parseJsonArray
