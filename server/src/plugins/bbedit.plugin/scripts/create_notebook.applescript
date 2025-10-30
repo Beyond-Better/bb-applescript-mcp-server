@@ -2,20 +2,20 @@
 	Create BBEdit Notebook
 	Creates a new notebook with optional initial content
 	
-	Template Variables (all JSON strings, parsed with parseJSON):
+	Template Variables (all JSON strings, parsed with parseValue):
 		${name} - Notebook name (required)
 		${location} - Save location (optional, default: ~/Documents/BBEdit Notebooks/)
 		${contentJson} - JSON array of content items (optional)
 		${shouldOpen} - Whether to open the notebook after creation (optional, default: true)
 *)
 
-tell application "BBEdit"
-	-- Parse JSON inputs
-	set notebookName to parseJSON(${name})
-	set saveLocation to parseJSON(${location})
-	set contentItems to parseJSON(${contentJson})
-	set shouldOpenNotebook to parseJSON(${shouldOpen})
-	
+-- Parse JSON inputs
+set notebookName to parseValue(${name})
+set saveLocation to parseValue(${location})
+set contentItems to parseValue(${contentJson})
+set shouldOpenNotebook to parseValue(${shouldOpen})
+
+tell application "BBEdit"	
 	-- Create the notebook
 	set newNotebook to make new notebook with properties {name:notebookName}
 	
@@ -59,7 +59,7 @@ tell application "BBEdit"
 			close window 1
 		end try
 	end if
-	
-	-- Return success with notebook info using buildJSONObject
-	return buildJSONObject({{"success", true}, {"notebookName", name of newNotebook}, {"notebookPath", notebookInfo}})
 end tell
+
+-- Return success with notebook info using buildJSONObject
+return buildJSONObject({{"success", true}, {"notebookName", name of newNotebook}, {"notebookPath", notebookInfo}})

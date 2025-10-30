@@ -18,6 +18,7 @@ import type {
 // Static imports for JSR deployment
 import standardPlugin from './plugins/standard.plugin/plugin.ts';
 import bbeditPlugin from './plugins/bbedit.plugin/plugin.ts';
+import mailPlugin from './plugins/mail.plugin/plugin.ts';
 
 /**
  * Detect if the server is running from JSR or locally
@@ -57,6 +58,7 @@ export function getStaticPlugins(): AppPlugin[] {
   return [
     standardPlugin,
     bbeditPlugin,
+    mailPlugin,
   ];
 }
 

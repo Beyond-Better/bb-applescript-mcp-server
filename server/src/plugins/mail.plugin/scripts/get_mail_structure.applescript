@@ -37,7 +37,7 @@ tell application "Mail"
 end tell
 
 -- Return hierarchical structure using buildJSONObject
-return buildJSONObject({"success", true}, {"accountCount", count of accountsList}, {"totalMailboxes", totalMailboxCount}, {"accounts", accountsList}})
+return buildJSONObject({{"success", true}, {"accountCount", count of accountsList}, {"totalMailboxes", totalMailboxCount}, {"accounts", accountsList}})
 
 -- Helper: Build mailbox info record
 on buildMailboxInfo(mb)

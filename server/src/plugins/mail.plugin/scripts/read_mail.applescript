@@ -31,27 +31,32 @@ tell application "Mail"
 	-- If specific message IDs provided, retrieve only those
 	if messageIds is not missing value then
 		set requestedIds to messageIds
+		log "Searching for specific message IDs: " & (count of requestedIds)
 		
-		-- Search for specific messages by ID
+		-- Use 'whose' clause for efficient ID-based lookup (much faster than looping!)
 		repeat with acc in accounts
 			repeat with mb in mailboxes of acc
 				try
-					repeat with msg in messages of mb
+					-- Search for all requested IDs in this mailbox at once
+					repeat with requestedId in requestedIds
 						if messageCount ≥ maxResults then exit repeat
 						
-						set msgId to id of msg
-						if msgId is in requestedIds then
+						-- Use 'whose' clause to find message by ID (no loop needed!)
+						set foundMessages to (messages of mb whose id is requestedId)
+						
+						if (count of foundMessages) > 0 then
+							set msg to first item of foundMessages
 							set end of matchedMessageObjects to msg
 							set messageCount to messageCount + 1
+							log "Found message with ID: " & requestedId
 						end if
-						
-						if messageCount ≥ maxResults then exit repeat
 					end repeat
 				end try
 				if messageCount ≥ maxResults then exit repeat
 			end repeat
 			if messageCount ≥ maxResults then exit repeat
 		end repeat
+		log "Found " & messageCount & " messages by ID"
 		
 		-- Sort and build results
 		set sortedMessages to my sortMessages(matchedMessageObjects, sortByOption)
@@ -76,50 +81,74 @@ tell application "Mail"
 		-- Filter accounts first
 		set accountsToSearch to {}
 		if accountNames is not missing value then
-			-- Filter by specific accounts
+			-- Filter by specific accounts (case-insensitive)
+			log "Filtering accounts: " & (accountNames as string)
 			repeat with acc in accounts
 				set accName to name of acc
-				if accName is in accountNames then
-					set end of accountsToSearch to acc
-				end if
+				-- log "Checking account: " & accName  -- VERBOSE: uncomment for debugging
+				-- Case-insensitive comparison
+				set accNameLower to my toLower(accName)
+				repeat with filterName in accountNames
+					if accNameLower is equal to my toLower(filterName) then
+						set end of accountsToSearch to acc
+						log "Account matched: " & accName
+						exit repeat
+					end if
+				end repeat
 			end repeat
+			log "Accounts to search: " & (count of accountsToSearch)
 		else
 			-- Search all accounts
 			set accountsToSearch to accounts
+			log "Searching all accounts: " & (count of accountsToSearch)
 		end if
 		
 		-- Now filter mailboxes within the selected accounts
 		if mailboxNames is not missing value then
-			-- Find matching mailboxes in selected accounts
+			-- Find matching mailboxes in selected accounts (case-insensitive)
+			log "Filtering mailboxes: " & (mailboxNames as string)
 			repeat with acc in accountsToSearch
 				repeat with mb in mailboxes of acc
-					if name of mb is in mailboxNames then
-						set end of mailboxesToSearch to mb
-					end if
+					set mbName to name of mb
+					set mbNameLower to my toLower(mbName)
+					-- Case-insensitive comparison
+					repeat with filterName in mailboxNames
+						if mbNameLower is equal to my toLower(filterName) then
+							set end of mailboxesToSearch to mb
+							-- log "Mailbox matched: " & mbName & " in account " & (name of acc)  -- VERBOSE: uncomment for debugging
+							exit repeat
+						end if
+					end repeat
 				end repeat
 			end repeat
+			log "Mailboxes to search: " & (count of mailboxesToSearch)
 		else
 			-- Search all mailboxes in selected accounts
 			repeat with acc in accountsToSearch
 				set mailboxesToSearch to mailboxesToSearch & mailboxes of acc
 			end repeat
+			log "Searching all mailboxes in selected accounts: " & (count of mailboxesToSearch)
 		end if
 		
 		-- Build native Mail.app filter using 'whose' clause
 		-- This is much more efficient than loading all messages
 		set hasFilters to (senderFilter is not missing value) or (subjectFilter is not missing value) or (flagsFilter is not missing value)
+		log "Has filters: " & hasFilters & ", sender: " & (senderFilter as string)
 		
 		-- Search through mailboxes using native filtering
 		repeat with mbox in mailboxesToSearch
 			try
 				set candidateMessages to {}
+				-- log "Searching mailbox: " & (name of mbox)  -- VERBOSE: uncomment for debugging
 				
 				if hasFilters then
 					-- Use native filtering with 'whose' clause for better performance
 					set candidateMessages to my getFilteredMessages(mbox, senderFilter, subjectFilter, flagsFilter)
+					log "Filtered messages found: " & (count of candidateMessages)
 				else
 					-- No filters, get all messages from mailbox
 					set candidateMessages to messages of mbox
+					-- log "All messages from mailbox: " & (count of candidateMessages)  -- VERBOSE: uncomment for debugging
 				end if
 				
 				-- Collect messages up to maxResults
@@ -129,7 +158,10 @@ tell application "Mail"
 					set end of matchedMessageObjects to msg
 					set messageCount to messageCount + 1
 				end repeat
+				-- log "Messages collected so far: " & messageCount  -- VERBOSE: uncomment for debugging
 				
+			on error errMsg
+				log "ERROR in mailbox search: " & errMsg
 			end try
 			
 			if messageCount ≥ maxResults then exit repeat
@@ -174,48 +206,76 @@ on buildMessageInfo(msg, includeBody)
 			set end of info to {"body", msgBody}
 		end if
 		
-		-- Convert to JSON object format
-		return buildJSONObject(info)
+		-- Return as list of pairs (will be converted by outer buildJSONObject)
+		return info
 	end tell
 end buildMessageInfo
 
 -- Helper: Get filtered messages using native Mail.app 'whose' clause
 -- This is much more efficient than loading all messages and filtering manually
+-- IMPORTANT: Must apply filters in the ORIGINAL query, not on cached lists!
 on getFilteredMessages(mbox, senderFilter, subjectFilter, flagsFilter)
 	tell application "Mail"
+		-- Build filter conditions as a list
+		set filterConditions to {}
+		
+		-- Note: We cannot apply 'whose' to a cached list in AppleScript
+		-- We must build a single query with all conditions
+		-- For now, we'll apply filters one at a time directly to the mailbox
+		
 		set filteredMessages to messages of mbox
 		
-		-- Apply sender filter using 'whose' clause
+		-- Apply sender filter
 		if senderFilter is not missing value then
-			set filteredMessages to (filteredMessages whose sender contains senderFilter)
+			-- log "Applying sender filter: " & senderFilter  -- VERBOSE: uncomment for debugging
+			set filteredMessages to (messages of mbox whose sender contains senderFilter)
 		end if
 		
-		-- Apply subject filter using 'whose' clause
+		-- Apply subject filter on top of sender results
 		if subjectFilter is not missing value then
-			set filteredMessages to (filteredMessages whose subject contains subjectFilter)
+			-- log "Applying subject filter: " & subjectFilter  -- VERBOSE: uncomment for debugging
+			if senderFilter is not missing value then
+				-- Both filters: need to apply together
+				set filteredMessages to (messages of mbox whose sender contains senderFilter and subject contains subjectFilter)
+			else
+				set filteredMessages to (messages of mbox whose subject contains subjectFilter)
+			end if
 		end if
 		
-		-- Apply flag filters using 'whose' clause
+		-- Apply flag filters
+		-- Note: This gets complex with multiple filters, so we'll apply flags separately
 		if flagsFilter is not missing value then
-			try
-				set filterRead to |read| of flagsFilter
-				set filteredMessages to (filteredMessages whose read status is filterRead)
-			end try
+			set flagFilteredMessages to {}
 			
-			try
-				set filterFlagged to flagged of flagsFilter
-				set filteredMessages to (filteredMessages whose flagged status is filterFlagged)
-			end try
+			repeat with msg in filteredMessages
+				set matchesFlags to true
+				
+				try
+					set filterRead to |read| of flagsFilter
+					if (read status of msg) is not filterRead then set matchesFlags to false
+				end try
+				
+				try
+					set filterFlagged to flagged of flagsFilter
+					if (flagged status of msg) is not filterFlagged then set matchesFlags to false
+				end try
+				
+				try
+					set filterDeleted to deleted of flagsFilter
+					if (deleted status of msg) is not filterDeleted then set matchesFlags to false
+				end try
+				
+				try
+					set filterJunk to junk of flagsFilter
+					if (junk mail status of msg) is not filterJunk then set matchesFlags to false
+				end try
+				
+				if matchesFlags then
+					set end of flagFilteredMessages to msg
+				end if
+			end repeat
 			
-			try
-				set filterDeleted to deleted of flagsFilter
-				set filteredMessages to (filteredMessages whose deleted status is filterDeleted)
-			end try
-			
-			try
-				set filterJunk to junk of flagsFilter
-				set filteredMessages to (filteredMessages whose junk mail status is filterJunk)
-			end try
+			set filteredMessages to flagFilteredMessages
 		end if
 		
 		return filteredMessages
@@ -302,3 +362,25 @@ on sortMessages(messagesList, sortOption)
 		return sortedList
 	end tell
 end sortMessages
+
+-- Helper: Convert string to lowercase for case-insensitive comparison
+on toLower(str)
+	set lowercaseChars to "abcdefghijklmnopqrstuvwxyz"
+	set uppercaseChars to "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	set result to ""
+	
+	repeat with i from 1 to length of str
+		set char to character i of str
+		set charOffset to offset of char in uppercaseChars
+		
+		if charOffset > 0 then
+			-- Convert uppercase to lowercase
+			set result to result & character charOffset of lowercaseChars
+		else
+			-- Keep as-is (already lowercase or not a letter)
+			set result to result & char
+		end if
+	end repeat
+	
+	return result
+end toLower

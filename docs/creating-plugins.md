@@ -73,9 +73,42 @@ end tell
 ```
 
 **Key points:**
-- ALL template variables are JSON strings - use `parseJSON()` to parse them
+- ALL template variables are JSON strings - use `parseValue()` to parse them
 - Use `buildJSONObject()` or `buildJSONArray()` for return values
 - JSON utilities are automatically injected - no need to define them
+
+### Common Pitfall: Data Structure Format
+
+**⚠️ CRITICAL - Most Common Error:**
+
+The `buildJSONObject()` function expects a **list of pairs**, NOT AppleScript records:
+
+**❌ WRONG:**
+```applescript
+-- Using AppleScript record syntax (colon notation)
+set result to {name:"Alice", age:30}
+return buildJSONObject(result)
+-- ERROR: "Can't make some data into the expected type" (-1700)
+```
+
+**✅ CORRECT:**
+```applescript
+-- Using list of pairs (comma notation)
+set result to {{"name", "Alice"}, {"age", 30}}
+return buildJSONObject(result)
+-- Works correctly!
+```
+
+**For nested structures:**
+```applescript
+-- Build inner structure as list of pairs
+set address to {{"street", "123 Main St"}, {"city", "Boston"}}
+
+-- Use in outer structure
+set person to {{"name", "Alice"}, {"address", address}}
+
+return buildJSONObject(person)
+```
 
 ### Step 3: Create the Plugin File
 
@@ -220,11 +253,11 @@ Send an email to test@example.com with subject "Hello" and body "Testing!"
 
 **IMPORTANT**: All template variables are JSON strings that must be parsed in AppleScript.
 
-The `findAndExecuteScript` function automatically JSON.stringifies all template variables. Your AppleScript must use `parseJSON()` to parse them:
+The `findAndExecuteScript` function automatically JSON.stringifies all template variables. Your AppleScript must use `parseValue()` to parse them:
 
 ```applescript
 -- Parse JSON inputs (auto-injected function)
-set myValue to parseJSON(${variableName})
+set myValue to parseValue(${variableName})
 ```
 
 The JSON parsing utilities are automatically injected into every script at runtime. See [JSON-STANDARDIZATION.md](./JSON-STANDARDIZATION.md) for complete details.
@@ -235,7 +268,7 @@ The JSON parsing utilities are automatically injected into every script at runti
 ```applescript
 -- Template: ${name}
 -- JavaScript: { name: "John Doe" }
--- In script: set userName to parseJSON(${name})
+-- In script: set userName to parseValue(${name})
 -- Result: "John Doe"
 ```
 
@@ -243,7 +276,7 @@ The JSON parsing utilities are automatically injected into every script at runti
 ```applescript
 -- Template: ${recipients}
 -- JavaScript: { recipients: ["alice@example.com", "bob@example.com"] }
--- In script: set recipientList to parseJSON(${recipients})
+-- In script: set recipientList to parseValue(${recipients})
 -- Result: {"alice@example.com", "bob@example.com"}
 ```
 
@@ -251,7 +284,7 @@ The JSON parsing utilities are automatically injected into every script at runti
 ```applescript
 -- Template: ${settings}
 -- JavaScript: { settings: { theme: "dark", size: 14 } }
--- In script: set settingsRecord to parseJSON(${settings})
+-- In script: set settingsRecord to parseValue(${settings})
 -- Result: {theme:"dark", size:14}
 ```
 
@@ -259,8 +292,8 @@ The JSON parsing utilities are automatically injected into every script at runti
 ```applescript
 -- Template: ${enabled} and ${count}
 -- JavaScript: { enabled: true, count: 42 }
--- In script: set isEnabled to parseJSON(${enabled})
--- In script: set itemCount to parseJSON(${count})
+-- In script: set isEnabled to parseValue(${enabled})
+-- In script: set itemCount to parseValue(${count})
 -- Result: true and 42
 ```
 
@@ -268,7 +301,7 @@ The JSON parsing utilities are automatically injected into every script at runti
 ```applescript
 -- Template: ${optional}
 -- JavaScript: { optional: null }
--- In script: set optionalValue to parseJSON(${optional})
+-- In script: set optionalValue to parseValue(${optional})
 -- Result: missing value
 ```
 

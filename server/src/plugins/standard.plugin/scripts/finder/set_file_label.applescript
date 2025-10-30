@@ -13,8 +13,8 @@ on run argv
 	end if
 	
 	-- Parse JSON inputs
-	set filePaths to parseJSON(item 1 of argv)
-	set labelIndex to parseJSON(item 2 of argv)
+	set filePaths to parseValue(item 1 of argv)
+	set labelIndex to parseValue(item 2 of argv)
 	
 	-- Validate label index
 	if labelIndex < 0 or labelIndex > 7 then

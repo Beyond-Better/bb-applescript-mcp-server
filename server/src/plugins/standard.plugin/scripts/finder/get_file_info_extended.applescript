@@ -12,7 +12,7 @@ on run argv
 	end if
 	
 	-- Parse JSON input
-	set filePath to parseJSON(item 1 of argv)
+	set filePath to parseValue(item 1 of argv)
 	
 	try
 		set fileItem to POSIX file filePath as alias
@@ -68,7 +68,7 @@ on run argv
 		set tagsList to {}
 		if tagsJson is not "[]" then
 			try
-				set tagsList to parseJSON(tagsJson)
+				set tagsList to parseValue(tagsJson)
 			end try
 		end if
 		

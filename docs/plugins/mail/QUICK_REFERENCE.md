@@ -7,6 +7,7 @@
 **User asks:** "Show me my recent unread emails"
 
 **LLM should use:**
+
 ```json
 {
   "flags": { "read": false },
@@ -25,6 +26,7 @@
 **User asks:** "Read message msg123 for me"
 
 **LLM should use:**
+
 ```json
 {
   "messageIds": ["msg123"],
@@ -41,6 +43,7 @@
 **User asks:** "Show me emails from support@company.com and read the urgent ones"
 
 **Step 1 - Get list:**
+
 ```json
 {
   "sender": "support@company.com",
@@ -49,6 +52,7 @@
   "includeBody": false
 }
 ```
+
 Returns: 10 messages with IDs ["msg1", "msg2", "msg3", ...]
 
 **Step 2 - LLM identifies urgent ones from subjects/dates**
@@ -56,15 +60,18 @@ Returns: 10 messages with IDs ["msg1", "msg2", "msg3", ...]
 Let's say msg1, msg3, msg7 look urgent based on subjects
 
 **Step 3 - Get full bodies:**
+
 ```json
 {
   "messageIds": ["msg1", "msg3", "msg7"],
   "includeBody": true
 }
 ```
+
 Returns: Full content for just those 3 messages
 
 **Step 4 - Mark as read after processing:**
+
 ```json
 {
   "messageIds": ["msg1", "msg3", "msg7"],
@@ -80,6 +87,7 @@ Returns: Full content for just those 3 messages
 **User asks:** "Find the first email I got from john@example.com"
 
 **LLM should use:**
+
 ```json
 {
   "sender": "john@example.com",
@@ -98,6 +106,7 @@ Returns: Full content for just those 3 messages
 **User asks:** "What messages have I flagged?"
 
 **LLM should use:**
+
 ```json
 {
   "flags": { "flagged": true },
@@ -115,13 +124,16 @@ Returns: Full content for just those 3 messages
 **User asks:** "Show me unread emails in my Work folder"
 
 **Step 1 - Get mailbox names:**
+
 ```json
 // get_mailboxes tool
 {}
 ```
+
 Returns: List showing mailbox named "Work" exists
 
 **Step 2 - Search that mailbox:**
+
 ```json
 {
   "mailboxes": ["Work"],
@@ -136,30 +148,38 @@ Returns: List showing mailbox named "Work" exists
 ## Sorting Options
 
 ### date-newest (Default)
+
 ```json
 { "sortBy": "date-newest" }
 ```
+
 - Most recent emails first
 - **Use for:** "show me recent emails", "what's new?", "latest messages"
 
 ### date-oldest
+
 ```json
 { "sortBy": "date-oldest" }
 ```
+
 - Oldest emails first
 - **Use for:** "find first email", "earliest message", "historical search"
 
 ### sender
+
 ```json
 { "sortBy": "sender" }
 ```
+
 - Alphabetical by sender email/name
 - **Use for:** "organize by sender", "group by person"
 
 ### subject
+
 ```json
 { "sortBy": "subject" }
 ```
+
 - Alphabetical by subject line
 - **Use for:** "organize by topic", "group by subject"
 
@@ -168,6 +188,7 @@ Returns: List showing mailbox named "Work" exists
 ## Performance Tips
 
 ### ✅ Efficient Pattern
+
 ```
 1. read_mail (metadata only, sorted) → Fast, returns IDs
 2. Review/analyze the list
@@ -176,6 +197,7 @@ Returns: List showing mailbox named "Work" exists
 ```
 
 ### ❌ Inefficient Pattern
+
 ```
 1. read_mail (includeBody=true, large maxResults) → SLOW!
    - Downloads hundreds of full email bodies
@@ -188,6 +210,7 @@ Returns: List showing mailbox named "Work" exists
 ## Filter Combinations
 
 ### Unread from Specific Sender
+
 ```json
 {
   "sender": "boss@company.com",
@@ -197,6 +220,7 @@ Returns: List showing mailbox named "Work" exists
 ```
 
 ### Flagged Messages About Project
+
 ```json
 {
   "subject": "Project Phoenix",
@@ -206,6 +230,7 @@ Returns: List showing mailbox named "Work" exists
 ```
 
 ### Unreplied Messages from Last Week
+
 ```json
 {
   "flags": { "replied": false, "read": true },
@@ -215,6 +240,7 @@ Returns: List showing mailbox named "Work" exists
 ```
 
 ### All Messages in Archive Folder
+
 ```json
 {
   "mailboxes": ["Archive"],
@@ -228,19 +254,21 @@ Returns: List showing mailbox named "Work" exists
 ## Common Mistakes
 
 ### ❌ Mistake 1: Always using includeBody=true
+
 ```json
 {
   "flags": { "read": false },
-  "includeBody": true,  // ❌ Slow! Gets full bodies you might not need
+  "includeBody": true, // ❌ Slow! Gets full bodies you might not need
   "maxResults": 50
 }
 ```
 
 **Better:**
+
 ```json
 {
   "flags": { "read": false },
-  "includeBody": false,  // ✅ Fast! Get IDs first
+  "includeBody": false, // ✅ Fast! Get IDs first
   "maxResults": 50
 }
 // Then get specific bodies only if needed
@@ -249,6 +277,7 @@ Returns: List showing mailbox named "Work" exists
 ---
 
 ### ❌ Mistake 2: Not using sort
+
 ```json
 {
   "sender": "support@company.com",
@@ -258,10 +287,11 @@ Returns: List showing mailbox named "Work" exists
 ```
 
 **Better:**
+
 ```json
 {
   "sender": "support@company.com",
-  "sortBy": "date-newest",  // ✅ Gets most recent 10
+  "sortBy": "date-newest", // ✅ Gets most recent 10
   "maxResults": 10
 }
 ```
@@ -269,6 +299,7 @@ Returns: List showing mailbox named "Work" exists
 ---
 
 ### ❌ Mistake 3: Re-filtering to get bodies
+
 ```json
 // First call
 {
@@ -285,6 +316,7 @@ Returns: List showing mailbox named "Work" exists
 ```
 
 **Better:**
+
 ```json
 // First call
 {
@@ -307,12 +339,14 @@ Returns: List showing mailbox named "Work" exists
 ### When to Use messageIds Parameter
 
 **✅ Use when:**
+
 - You already have message IDs from a previous query
 - User asks to read a specific message: "read message msg123"
 - You want to get full bodies after reviewing metadata
 - You need to retrieve selected messages efficiently
 
 **❌ Don't use when:**
+
 - Doing initial search/filter (use sender/subject/flags instead)
 - You don't have the message IDs yet
 - User asks for "all emails from X" (use filters)
@@ -320,6 +354,7 @@ Returns: List showing mailbox named "Work" exists
 ### Message ID Behavior
 
 **When messageIds is provided:**
+
 - All other filters are ignored (sender, subject, flags, mailboxes)
 - Searches for exactly those message IDs
 - Sort still applies to the results
@@ -350,6 +385,7 @@ User asks about emails
 ## LLM Guidelines
 
 ### Default Behavior
+
 - Always use `sortBy: "date-newest"` unless user requests otherwise
 - Default to `includeBody: false` for searches
 - Only use `includeBody: true` when:
@@ -368,6 +404,7 @@ User asks about emails
 **"What are my unread emails?"** → `flags.read: false`, `includeBody: false`
 
 **"Summarize emails from John"** → Two-step:
+
 1. Get list from John
 2. Get bodies of selected messages
 3. Summarize
@@ -377,17 +414,20 @@ User asks about emails
 ## Tool Selection
 
 ### Use read_mail when:
+
 - Searching for messages
 - Listing messages
 - Getting message content
 - Retrieving specific messages by ID
 
 ### Use get_mailboxes when:
+
 - User asks "what folders do I have?"
 - Need to know exact mailbox names
 - Want to see unread counts per folder
 
 ### Use mark_mail when:
+
 - Marking messages as read/unread
 - Flagging messages
 - Organizing messages

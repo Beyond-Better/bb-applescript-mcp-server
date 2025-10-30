@@ -141,7 +141,7 @@ export default {
 		);
 
 		// NOTE: For APPROACH 2 with script files and automatic JSON utilities:
-		// 1. Create scripts/send_email.applescript with parseJSON() calls
+		// 1. Create scripts/send_email.applescript with parseValue() calls
 		// 2. Use findAndExecuteScript() which auto-injects JSON utilities
 		// 3. Pass raw values (not JSON.stringify) - templateRenderer handles it
 		// Example:

@@ -138,7 +138,7 @@ export async function executeScript(
     }
 
     // Prepend JSON utilities before rendering
-    const contentWithJson = prependJsonUtilities(script.content);
+    const contentWithJson = appendJsonUtilities(script.content);
     const rendered = renderTemplate(contentWithJson, variables);
     logger?.debug('Rendered template script', {
       variables: Object.keys(variables),
@@ -148,7 +148,7 @@ export async function executeScript(
     return compileAndRun(rendered, timeout, logger);
   } else if (script.content) {
     // Non-template source script - compile with JSON utilities and run
-    const contentWithJson = prependJsonUtilities(script.content);
+    const contentWithJson = appendJsonUtilities(script.content);
     logger?.debug('Compiling script with JSON utilities', {
       lines: contentWithJson.split('\n').length,
     });
@@ -303,7 +303,7 @@ async function executeCompiledInlinedScript(
 /**
  * Prepend JSON utility functions to a script
  */
-function prependJsonUtilities(content: string): string {
+function appendJsonUtilities(content: string): string {
   const jsonUtilities = `
 -- JSON Utilities (auto-injected)
 (*
@@ -317,7 +317,7 @@ Description:
     AppleScript record iteration limitations with explicit key-value pairs.
 
 Functions:
-    • parseJSON(jsonString) - Parse JSON string to AppleScript data structures
+    • parseValue(jsonString) - Parse JSON string to AppleScript data structures
     • buildJSONObject(pairs) - Build JSON object from list of {key, value} pairs
     • buildJSONArray(items) - Build JSON array from list of items
     • jsonValue(val) - Convert AppleScript value to JSON string representation
@@ -328,7 +328,7 @@ Requirements:
 
 Usage Examples:
     -- Parse JSON
-    set data to parseJSON("[\"a\",\"b\",\"c\"]")
+    set data to parseValue("[\\"a\\",\\"b\\",\\"c\\"]")
     
     -- Build JSON object
     set json to buildJSONObject({{"name", "Alice"}, {"age", 30}, {"active", true}})
@@ -340,9 +340,9 @@ Usage Examples:
     set json to buildJSONObject({{"items", {"a", "b"}}, {"count", 2}})
 
 Implementation Notes:
-    - parseJSON uses JavaScript runtime (~50ms overhead, handles all edge cases)
+    - parseValue uses JavaScript runtime (~50ms overhead, handles all edge cases)
     - JSON construction is manual to avoid AppleScript record iteration issues
-    - Properly escapes special characters (backslashes (\), quotes (""), newlines, tabs)
+    - Properly escapes special characters (backslashes (\\), quotes (""), newlines, tabs)
     - Handles nested arrays and null values
     - Type-safe conversions for strings, numbers, booleans, lists
 
@@ -358,7 +358,21 @@ Performance:
 
 Examples:
 
-set jsonStr to buildJSONObject({{"itemCount", 3}, {"enabled", true}, {"items", {"a", "b"}}})-- Result: {"itemCount":3,"enabled":true,"items":["a","b"]}-- Build JSON arrayset jsonArr to buildJSONArray({"id1", "id2", "id3"})-- Result: ["id1","id2","id3"]-- Parse JSONset jsonData to parseJSON("[\"x\",\"y\",\"z\"]")-- Result: {"x", "y", "z"}-- Nested structuresset complex to buildJSONObject({{"user", "alice"}, {"roles", {"admin", "user"}}, {"active", true}})-- Result: {"user":"alice","roles":["admin","user"],"active":true}
+set jsonStr to buildJSONObject({{"itemCount", 3}, {"enabled", true}, {"items", {"a", "b"}}})
+-- Result: {"itemCount":3,"enabled":true,"items":["a","b"]}
+
+-- Build JSON array
+set jsonArr to buildJSONArray({"id1", "id2", "id3"})
+-- Result: ["id1","id2","id3"]
+
+-- Parse JSON
+set jsonData to parseValue("[\\"x\\",\\"y\\",\\"z\\"]")
+-- Result: {"x", "y", "z"}
+
+-- Nested structures
+set complex to buildJSONObject({{"user", "alice"}, {"roles", {"admin", "user"}}, {"active", true}})
+-- Result: {"user":"alice","roles":["admin","user"],"active":true}
+
 
 *)
 
@@ -403,7 +417,7 @@ on parseValue(value)
 		-- Try to handle as a simple type
 		
 		-- Check if it's a JSON string (starts and ends with quotes)
-		if value starts with "\"" and value ends with "\"" and (length of value) ≥ 2 then
+		if value starts with "\\"" and value ends with "\\"" and (length of value) ≥ 2 then
 			-- Strip the outer quotes and unescape
 			if (length of value) is 2 then
 				-- Empty string case: ""
@@ -411,10 +425,10 @@ on parseValue(value)
 			else
 				set unquoted to text 2 thru -2 of value
 				-- Unescape common JSON escapes
-				set unquoted to replaceText(unquoted, "\\\\", "\\")
-				set unquoted to replaceText(unquoted, "\\\"", "\"")
-				set unquoted to replaceText(unquoted, "\\n", return)
-				set unquoted to replaceText(unquoted, "\\t", tab)
+				set unquoted to replaceText(unquoted, "\\\\\\\\", "\\\\")
+				set unquoted to replaceText(unquoted, "\\\\\\"", "\\"")
+				set unquoted to replaceText(unquoted, "\\\\n", return)
+				set unquoted to replaceText(unquoted, "\\\\t", tab)
 				return unquoted
 			end if
 		end if
@@ -437,7 +451,7 @@ on buildJSONObject(pairs)
 	set jsonParts to {}
 	repeat with pair in pairs
 		set {keyName, val} to pair
-		set end of jsonParts to "\"" & keyName & "\":" & jsonValue(val)
+		set end of jsonParts to "\\"" & keyName & "\\":" & jsonValue(val)
 	end repeat
 	return "{" & joinList(jsonParts, ",") & "}"
 end buildJSONObject
@@ -466,16 +480,16 @@ on jsonValue(val)
 	else if class of val is string then
 		-- Escape special characters
 		set escaped to val
-		set escaped to replaceText(escaped, "\\", "\\\\")
-		set escaped to replaceText(escaped, "\"", "\\\"")
-		set escaped to replaceText(escaped, return, "\\n")
-		set escaped to replaceText(escaped, tab, "\\t")
-		return "\"" & escaped & "\""
+		set escaped to replaceText(escaped, "\\\\", "\\\\\\\\")
+		set escaped to replaceText(escaped, "\\"", "\\\\\\"")
+		set escaped to replaceText(escaped, return, "\\\\n")
+		set escaped to replaceText(escaped, tab, "\\\\t")
+		return "\\"" & escaped & "\\""
 	else if class of val is list then
 		return buildJSONArray(val)
 	else
 		-- Fallback for unknown types
-		return "\"" & (val as string) & "\""
+		return "\\"" & (val as string) & "\\""
 	end if
 end jsonValue
 
@@ -501,7 +515,7 @@ end replaceText
 -- End JSON Utilities
 
 `;
-  return jsonUtilities + content;
+  return content + jsonUtilities;
 }
 
 /**
@@ -517,7 +531,7 @@ async function executeTextInlinedScript(
   const hasTemplates = /\$\{[^}]+\}/.test(content);
 
   // Always prepend JSON utilities at runtime
-  const contentWithJson = prependJsonUtilities(content);
+  const contentWithJson = appendJsonUtilities(content);
 
   if (hasTemplates && variables) {
     // Render template and compile/run

@@ -9,6 +9,7 @@ Provides tools for reading, organizing, and managing emails via Apple Mail.app.
 Search and retrieve email messages based on sender, subject, and status flags.
 
 **Parameters:**
+
 - `messageIds` (optional): Retrieve specific messages by ID (ignores other filters if provided)
 - `sender` (optional): Filter by sender email address or name (partial match)
 - `subject` (optional): Filter by subject text (partial match)
@@ -25,6 +26,7 @@ Search and retrieve email messages based on sender, subject, and status flags.
 - `timeout` (optional): Timeout in milliseconds
 
 **Returns:**
+
 ```json
 {
   "success": true,
@@ -51,18 +53,22 @@ Search and retrieve email messages based on sender, subject, and status flags.
 
 **Example Usage:**
 
-*Basic search (metadata only):*
+_Basic search (metadata only):_
+
 ```
 Find all unread emails from john@example.com
 ```
+
 ```
 Show me the 10 most recent flagged emails with "urgent" in the subject
 ```
+
 ```
 Get the 20 oldest unread messages
 ```
 
-*Retrieve full body for specific messages:*
+_Retrieve full body for specific messages:_
+
 ```
 # Step 1: Get list with metadata
 "Show me unread emails from sarah@company.com about project alpha"
@@ -81,10 +87,12 @@ Get the 20 oldest unread messages
 List all available mailboxes/folders across all accounts or for a specific account.
 
 **Parameters:**
+
 - `accountName` (optional): Filter mailboxes by specific account name
 - `timeout` (optional): Timeout in milliseconds
 
 **Returns:**
+
 ```json
 {
   "success": true,
@@ -105,12 +113,15 @@ List all available mailboxes/folders across all accounts or for a specific accou
 ```
 
 **Example Usage:**
+
 ```
 List all my mailboxes
 ```
+
 ```
 Show me mailboxes for my work account
 ```
+
 ```
 Which folders have unread messages?
 ```
@@ -122,12 +133,14 @@ Which folders have unread messages?
 Mark email messages with specific flags (read/unread, flagged, deleted, junk).
 
 **Parameters:**
+
 - `messageIds` (required): Array of message IDs to mark (obtained from read_mail)
 - `flagType` (required): Type of flag to modify - one of: `read`, `flagged`, `deleted`, `junk`
 - `flagValue` (required): Value to set the flag to (true or false)
 - `timeout` (optional): Timeout in milliseconds
 
 **Returns:**
+
 ```json
 {
   "success": true,
@@ -141,12 +154,15 @@ Mark email messages with specific flags (read/unread, flagged, deleted, junk).
 ```
 
 **Example Usage:**
+
 ```
 Mark the first 5 unread emails as read
 ```
+
 ```
 Flag all emails from the CEO
 ```
+
 ```
 Mark those spam messages as junk
 ```
@@ -166,6 +182,7 @@ Mark those spam messages as junk
 5. Use `mark_mail` to mark them as read
 
 **Example Flow:**
+
 ```
 1. "Find the 10 most recent unread emails from support@company.com"
    # LLM uses: read_mail with sender filter, flags.read=false, sortBy='date-newest', maxResults=10
@@ -190,6 +207,7 @@ Mark those spam messages as junk
 3. Process or organize messages
 
 **Example Flow:**
+
 ```
 1. "Show me all my mailboxes"
 2. "Find flagged messages in my Projects folder"
@@ -203,6 +221,7 @@ Mark those spam messages as junk
 3. Use `mark_mail` to flag important ones or mark others as read
 
 **Example Flow:**
+
 ```
 1. "Find all unread emails from the last 2 days"
 2. "Which of these are urgent?"
@@ -216,32 +235,44 @@ Mark those spam messages as junk
 The following tools are planned for future implementation:
 
 ### send_mail
+
 Compose and send emails with attachments.
+
 - Parameters: `to`, `subject`, `body`, `cc`, `bcc`, `attachments`
 - Use case: "Send an email to john@example.com about the meeting"
 
 ### move_mail
+
 Move messages between mailboxes.
+
 - Parameters: `messageIds`, `targetMailbox`
 - Use case: "Move these emails to my Archive folder"
 
 ### delete_mail
+
 Delete or move messages to trash.
+
 - Parameters: `messageIds`, `permanent` (bool)
 - Use case: "Delete these spam messages"
 
 ### create_mailbox
+
 Create new mailboxes/folders.
+
 - Parameters: `name`, `accountName`, `parentMailbox`
 - Use case: "Create a new folder called 'Q1 Reports'"
 
 ### reply_to_mail / forward_mail
+
 Create reply or forward messages.
+
 - Parameters: `messageId`, `body`, `to` (for forward)
 - Use case: "Reply to that email saying I'll attend"
 
 ### get_mail_attachments
+
 List or save attachments from messages.
+
 - Parameters: `messageId`, `savePath`
 - Use case: "Save the attachments from that email to Downloads"
 
@@ -263,6 +294,7 @@ Mail.app assigns unique IDs to each message. These IDs are stable and can be use
 ### Sorting and Message Retrieval
 
 **Sorting Options:**
+
 - `date-newest` (default): Most recent messages first - ideal for "show me latest emails"
 - `date-oldest`: Oldest messages first - useful for finding early correspondence
 - `sender`: Alphabetical by sender email/name
@@ -292,6 +324,7 @@ Mail.app assigns unique IDs to each message. These IDs are stable and can be use
    Returns: Full content for just those 2 messages
 
 **Why This Works Better:**
+
 - Metadata queries are fast (no body retrieval)
 - User/LLM can review list and decide which to read fully
 - Only retrieve full bodies for messages that matter
@@ -314,6 +347,7 @@ Mail.app assigns unique IDs to each message. These IDs are stable and can be use
 ### Approval Mechanism (TODO)
 
 The `mark_mail` tool should request user approval before modifying messages. This will use bb-mcp-server's elicitation support to:
+
 1. Present the action to be performed
 2. Show which messages will be affected
 3. Request user confirmation
@@ -325,7 +359,7 @@ This ensures the LLM doesn't accidentally modify important emails without user c
 
 ## Permissions
 
-On first use, macOS will prompt you to grant automation permissions for the MCP server to control Mail.app. 
+On first use, macOS will prompt you to grant automation permissions for the MCP server to control Mail.app.
 
 You can also manually grant permissions in:
 **System Settings → Privacy & Security → Automation → [Your MCP Client] → Mail**
@@ -339,6 +373,7 @@ You can also manually grant permissions in:
 **User:** "Show me all unread emails from today"
 
 **Assistant uses:**
+
 1. `read_mail` with `flags.read=false` (metadata only)
 2. Reviews and summarizes the emails
 
@@ -361,6 +396,7 @@ You can also manually grant permissions in:
 **User:** "List my mailboxes"
 
 **Assistant uses:**
+
 1. `get_mailboxes`
 2. Shows all available folders
 
@@ -386,11 +422,13 @@ You can also manually grant permissions in:
 ### Testing
 
 Test the plugin with:
+
 ```bash
 deno task dev
 ```
 
 Then in your MCP client:
+
 ```
 List my mailboxes
 Find unread emails
@@ -400,11 +438,13 @@ Mark message XYZ as read
 ### Debugging
 
 Enable debug logging:
+
 ```bash
 LOG_LEVEL=debug deno task dev
 ```
 
 Test AppleScript directly:
+
 ```bash
 osascript server/src/plugins/mail.plugin/scripts/read_mail.applescript
 ```

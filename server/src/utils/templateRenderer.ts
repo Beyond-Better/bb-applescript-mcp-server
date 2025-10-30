@@ -72,8 +72,8 @@ export function toAppleScriptRecord(obj: Record<string, any>): string {
  * const items = ["file1.txt", "file2.txt"];
  * const code = script`
  *   tell application "BBEdit"
- *     set nameValue to parseJSON(${name})
- *     set itemsValue to parseJSON(${items})
+ *     set nameValue to parseValue(${name})
+ *     set itemsValue to parseValue(${items})
  *     make new notebook with properties {name:nameValue}
  *     repeat with itemPath in itemsValue
  *       open itemPath
@@ -81,7 +81,7 @@ export function toAppleScriptRecord(obj: Record<string, any>): string {
  *   end tell
  * `;
  *
- * Note: All interpolated values are JSON strings that must be parsed with parseJSON() in AppleScript
+ * Note: All interpolated values are JSON strings that must be parsed with parseValue() in AppleScript
  */
 export function script(strings: TemplateStringsArray, ...values: any[]): string {
   return strings.reduce((result, str, i) => {
@@ -103,7 +103,7 @@ export function script(strings: TemplateStringsArray, ...values: any[]): string 
  * @param variables - Object with variable values
  * @returns Rendered AppleScript code with JSON-stringified values
  *
- * Note: All interpolated values are JSON strings that must be parsed with parseJSON() in AppleScript
+ * Note: All interpolated values are JSON strings that must be parsed with parseValue() in AppleScript
  */
 export function renderTemplate(template: string, variables: Record<string, any>): string {
   return template.replace(/\$\{([^}]+)\}/g, (match, varName) => {

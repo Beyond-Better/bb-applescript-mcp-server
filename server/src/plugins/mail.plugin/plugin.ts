@@ -85,6 +85,22 @@ const getMailStructureInputSchema = {
   timeout: z.number().optional().describe('Timeout in milliseconds'),
 } as const;
 
+const testSenderFilterInputSchema = {
+  accountName: z
+    .string()
+    .optional()
+    .describe('Account name to test (case-insensitive). Uses first account if not specified.'),
+  mailboxName: z
+    .string()
+    .optional()
+    .describe('Mailbox name to test (case-insensitive). Uses INBOX if not specified.'),
+  senderSearch: z
+    .string()
+    .optional()
+    .describe('Sender to search for (email or name). Tests different matching strategies.'),
+  timeout: z.number().optional().describe('Timeout in milliseconds'),
+} as const;
+
 const markMailInputSchema = {
   messageIds: z
     .array(z.string())
@@ -102,34 +118,41 @@ const markMailInputSchema = {
 
 // Type definitions
 type ReadMailArgs = {
-  messageIds?: string[];
-  sender?: string;
-  subject?: string;
+  messageIds?: string[] | undefined;
+  sender?: string | undefined;
+  subject?: string | undefined;
   flags?: {
-    read?: boolean;
-    flagged?: boolean;
-    replied?: boolean;
-    forwarded?: boolean;
-    deleted?: boolean;
-  };
-  accounts?: string[];
-  mailboxes?: string[];
-  sortBy?: 'date-newest' | 'date-oldest' | 'sender' | 'subject';
-  includeBody?: boolean;
-  maxResults?: number;
-  timeout?: number;
+    read?: boolean | undefined;
+    flagged?: boolean | undefined;
+    replied?: boolean | undefined;
+    forwarded?: boolean | undefined;
+    deleted?: boolean | undefined;
+  } | undefined;
+  accounts?: string[] | undefined;
+  mailboxes?: string[] | undefined;
+  sortBy?: 'date-newest' | 'date-oldest' | 'sender' | 'subject' | undefined;
+  includeBody?: boolean | undefined;
+  maxResults?: number | undefined;
+  timeout?: number | undefined;
 };
 
 type GetMailStructureArgs = {
-  accountName?: string;
-  timeout?: number;
+  accountName?: string | undefined;
+  timeout?: number | undefined;
+};
+
+type TestSenderFilterArgs = {
+  accountName?: string | undefined;
+  mailboxName?: string | undefined;
+  senderSearch?: string | undefined;
+  timeout?: number | undefined;
 };
 
 type MarkMailArgs = {
   messageIds: string[];
   flagType: 'read' | 'flagged' | 'deleted' | 'junk';
   flagValue: boolean;
-  timeout?: number;
+  timeout?: number | undefined;
 };
 
 export default {
@@ -436,6 +459,96 @@ export default {
         }
       },
     );
+
+    // Register test_sender_filter tool (only if DEBUG_MAIL_TOOLS is enabled)
+    const enableDebugTools = Deno.env.get('DEBUG_MAIL_TOOLS') === 'true';
+    
+    if (enableDebugTools) {
+      toolRegistry.registerTool(
+        'test_sender_filter',
+      {
+        title: 'Test Sender Filter',
+        description:
+          'Diagnostic tool to test sender filtering. Shows actual sender values from messages and tests different matching strategies (exact, contains, starts with, ends with) to diagnose why filters might not be working.',
+        category: 'Mail',
+        inputSchema: testSenderFilterInputSchema,
+      },
+      async (args: TestSenderFilterArgs) => {
+        try {
+          logger.info('Testing sender filter:', {
+            accountName: args.accountName,
+            mailboxName: args.mailboxName,
+            senderSearch: args.senderSearch,
+          });
+
+          const variables: Record<string, any> = {
+            accountName: args.accountName ?? null,
+            mailboxName: args.mailboxName ?? null,
+            senderSearch: args.senderSearch ?? null,
+          };
+
+          const result = await findAndExecuteScript(
+            pluginDir,
+            'tests/test_sender_filter',
+            variables,
+            undefined,
+            args.timeout,
+            logger,
+          );
+
+          if (result.success) {
+            let scriptResult;
+            try {
+              scriptResult = typeof result.result === 'string' ? JSON.parse(result.result) : result.result;
+            } catch {
+              scriptResult = { output: result.result };
+            }
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(
+                    {
+                      success: true,
+                      ...(typeof scriptResult === 'object' && scriptResult !== null
+                        ? scriptResult
+                        : { output: scriptResult }),
+                      metadata: result.metadata,
+                    },
+                    null,
+                    2,
+                  ),
+                },
+              ],
+            };
+          } else {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(result, null, 2),
+                },
+              ],
+              isError: true,
+            };
+          }
+        } catch (error) {
+          logger.error('Failed to test sender filter:', error);
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+      },
+      );
+      logger.info('Mail plugin initialized with DEBUG tool: test_sender_filter');
+    }
 
     logger.info('Mail plugin initialized with tools: read_mail, get_mail_structure, mark_mail');
   },

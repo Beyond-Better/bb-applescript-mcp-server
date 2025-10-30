@@ -1,13 +1,13 @@
 -- Mark Mail Script
 -- Mark messages with specific flags
--- Template variables (all JSON strings, parsed with parseJSON): ${messageIds}, ${flagType}, ${flagValue}
+-- Template variables (all JSON strings, parsed with parseValue): ${messageIds}, ${flagType}, ${flagValue}
+
+-- Parse JSON inputs
+set messageIds to parseValue(${messageIds})
+set flagType to parseValue(${flagType})
+set flagValue to parseValue(${flagValue})
 
 tell application "Mail"
-	-- Parse JSON inputs
-	set messageIds to parseJSON(${messageIds})
-	set flagType to parseJSON(${flagType})
-	set flagValue to parseJSON(${flagValue})
-	
 	-- Track results
 	set successCount to 0
 	set failedIds to {}
@@ -60,5 +60,6 @@ tell application "Mail"
 		set end of resultPairs to {"failedIds", failedIds}
 	end if
 	
-	return buildJSONObject(resultPairs)
 end tell
+
+return buildJSONObject(resultPairs)

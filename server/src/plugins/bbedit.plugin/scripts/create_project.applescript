@@ -10,14 +10,14 @@
 		${shouldOpen} - Whether to open the project after creation (optional, default: true)
 *)
 
+-- Parse JSON inputs
+set projectName to parseValue(${name})
+set saveLocation to parseValue(${location})
+set itemsList to parseValue(${itemsJson})
+set projectSettings to parseValue(${settingsJson})
+set shouldOpenProject to parseValue(${shouldOpen})
+
 tell application "BBEdit"
-	-- Parse JSON inputs
-	set projectName to parseJSON(${name})
-	set saveLocation to parseJSON(${location})
-	set itemsList to parseJSON(${itemsJson})
-	set projectSettings to parseJSON(${settingsJson})
-	set shouldOpenProject to parseJSON(${shouldOpen})
-	
 	-- Create default save location if none provided
 	if saveLocation is missing value or saveLocation is "" then
 		set saveLocation to (path to documents folder as text) & "BBEdit Projects:"
@@ -57,7 +57,7 @@ tell application "BBEdit"
 			close newProject
 		end try
 	end if
-	
-	-- Return success with project info using buildJSONObject
-	return buildJSONObject({{"success", true}, {"projectName", projectName}, {"projectPath", POSIX path of projectPath}})
 end tell
+
+-- Return success with project info using buildJSONObject
+return buildJSONObject({{"success", true}, {"projectName", projectName}, {"projectPath", POSIX path of projectPath}})

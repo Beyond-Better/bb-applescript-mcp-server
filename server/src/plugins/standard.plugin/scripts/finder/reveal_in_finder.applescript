@@ -12,7 +12,7 @@ on run argv
 	end if
 	
 	-- Parse JSON input
-	set filePaths to parseJSON(item 1 of argv)
+	set filePaths to parseValue(item 1 of argv)
 	
 	if (count of filePaths) is 0 then
 		return "Error: No valid paths provided"

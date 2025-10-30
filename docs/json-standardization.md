@@ -25,7 +25,7 @@ This document describes the standardized approach for JSON parsing and encoding 
 ### 2. AppleScript Scripts Updated
 
 **All scripts now use**:
-- `parseJSON(jsonString)` for input parsing
+- `parseValue(jsonString)` for input parsing
 - `buildJSONObject(pairs)` for output encoding
 - `buildJSONArray(items)` for array output encoding
 - `jsonValue(val)` for individual value conversion
@@ -104,7 +104,41 @@ end tell
 return buildJSONObject({{"success", true}, {"name", notebookName}})
 ```
 
-**⚠️ CRITICAL**: The `parseValue()` function (and `parseJSON()`) MUST be called **OUTSIDE** of `tell application` blocks. When inside a `tell` block, AppleScript tries to send commands to that application, and your custom functions won't be accessible.
+**⚠️ CRITICAL**: The `parseValue()` function (and `parseJSON()`) and `buildJSONObject()` MUST be called **OUTSIDE** of `tell application` blocks. When inside a `tell` block, AppleScript tries to send commands to that application, and your custom functions won't be accessible.
+
+### Common Pitfall: AppleScript Record Syntax
+
+**❌ WRONG - Using AppleScript record syntax with colons:**
+```applescript
+-- This creates an AppleScript record, NOT compatible with buildJSONObject!
+set info to {name:"Alice", age:30, active:true}
+return buildJSONObject(info)  -- ERROR: "Can't make some data into the expected type" (-1700)
+```
+
+**✅ CORRECT - Using list of pairs:**
+```applescript
+-- This creates a list of pairs, compatible with buildJSONObject
+set info to {{"name", "Alice"}, {"age", 30}, {"active", true}}
+return buildJSONObject(info)  -- Works correctly!
+```
+
+**Why This Matters:**
+- AppleScript records use colon syntax: `{key:value}`
+- `buildJSONObject` expects list of pairs: `{{key, value}}`
+- Using record syntax causes error -1700: "Can't make some data into the expected type"
+- This is the **most common error** when creating new AppleScript tools
+
+**When Building Nested Structures:**
+```applescript
+-- Build nested flags object
+set msgFlags to {{"read", true}, {"flagged", false}, {"deleted", false}}
+
+-- Use the nested structure in parent
+set info to {{"id", "12345"}, {"sender", "alice@example.com"}, {"flags", msgFlags}}
+
+-- Return outer structure only
+return buildJSONObject(info)
+```
 
 #### Argument-Based Scripts (e.g., Finder tools)
 
@@ -158,7 +192,7 @@ These functions are automatically prepended to every AppleScript by scriptLoader
 
 ```applescript
 -- Parse JSON string to AppleScript data structures
-parseJSON(jsonString)
+parseValue(jsonString)
   -- Returns: AppleScript list, record, string, number, boolean, or missing value
 
 -- Build JSON object from key-value pairs
@@ -200,8 +234,8 @@ set items to text items of jsonStr
 -- Use buildJSONObject for output
 return buildJSONObject({{"name", userName}, {"age", userAge}})
 
--- Use parseJSON for input
-set items to parseJSON(jsonStr)
+-- Use parseValue for input
+set items to parseValue(jsonStr)
 ```
 
 ### Best Practices
@@ -283,11 +317,11 @@ After updating scripts:
 ### Breaking Changes
 
 **Template-based scripts**:
-- Scripts now MUST use `parseJSON()` on all template variables
+- Scripts now MUST use `parseValue()` on all template variables
 - Old scripts expecting native AppleScript syntax will break
 
 **Argument-based scripts**:
-- Scripts now MUST use `parseJSON()` on argv items
+- Scripts now MUST use `parseValue()` on argv items
 - Tools MUST continue to JSON.stringify arguments
 
 ### Migration Path
@@ -296,7 +330,7 @@ All existing scripts have been updated. No user action required.
 
 ## Performance Notes
 
-- `parseJSON()` uses JavaScript runtime (~50ms overhead per call)
+- `parseValue()` uses JavaScript runtime (~50ms overhead per call)
 - `buildJSONObject()` is native AppleScript (<5ms)
 - Runtime injection adds ~500 bytes to each script
 - Tradeoff: Slight performance cost for significantly improved reliability
@@ -362,7 +396,7 @@ const scriptArgs = [
 await findAndExecuteScript(pluginDir, 'script', undefined, scriptArgs, ...);
 
 // Inline script - YES, stringify
-const script = `set myData to parseJSON("${JSON.stringify(data).replace(/"/g, '\\"')}")`;
+const script = `set myData to parseValue("${JSON.stringify(data).replace(/"/g, '\\"')}")`;
 await runAppleScript({ script, inline: true });
 ```
 
