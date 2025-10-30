@@ -10,10 +10,6 @@ on run
 		tell application "Finder"
 			set selectedItems to selection
 			
-			if (count of selectedItems) is 0 then
-				return buildJSONObject({{"count", 0}, {"items", {}}})
-			end if
-			
 			set resultList to {}
 			
 			repeat with selectedItem in selectedItems
@@ -28,7 +24,8 @@ on run
 					set isFolder to true
 				end try
 				
-				set resultEntry to {path:itemPath, name:itemName, kind:itemKind, isFolder:isFolder}
+				-- Build result entry as list of pairs for buildJSONObject
+				set resultEntry to {{"path", itemPath}, {"name", itemName}, {"kind", itemKind}, {"isFolder", isFolder}}
 				set end of resultList to resultEntry
 			end repeat
 			
