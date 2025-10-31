@@ -98,25 +98,25 @@ Deno.test('toAppleScriptRecord - empty object', () => {
 Deno.test('script - tagged template with string', () => {
   const name = 'My Notebook';
   const result = script`set noteName to ${name}`;
-  assertEquals(result, 'set noteName to "My Notebook"');
+  assertEquals(result, 'set noteName to "\\"My Notebook\\""');
 });
 
 Deno.test('script - tagged template with number', () => {
   const count = 42;
   const result = script`set itemCount to ${count}`;
-  assertEquals(result, 'set itemCount to 42');
+  assertEquals(result, 'set itemCount to "42"');
 });
 
 Deno.test('script - tagged template with array', () => {
   const items = ['file1', 'file2'];
   const result = script`set fileList to ${items}`;
-  assertEquals(result, 'set fileList to {"file1", "file2"}');
+  assertEquals(result, 'set fileList to "[\\"file1\\",\\"file2\\"]"');
 });
 
 Deno.test('script - tagged template with object', () => {
   const props = { name: 'test', value: 10 };
   const result = script`make new item with properties ${props}`;
-  assertEquals(result, 'make new item with properties {name:"test", value:10}');
+  assertEquals(result, 'make new item with properties "{\\"name\\":\\"test\\",\\"value\\":10}"');
 });
 
 Deno.test('script - tagged template with multiple values', () => {
@@ -124,31 +124,31 @@ Deno.test('script - tagged template with multiple values', () => {
   const count = 5;
   const items = ['a', 'b'];
   const result = script`set x to ${name} and y to ${count} and z to ${items}`;
-  assertEquals(result, 'set x to "Test" and y to 5 and z to {"a", "b"}');
+  assertEquals(result, 'set x to "\\"Test\\"" and y to "5" and z to "[\\"a\\",\\"b\\"]"');
 });
 
 Deno.test('renderTemplate - simple variable', () => {
   const template = 'Hello ${name}!';
   const result = renderTemplate(template, { name: 'World' });
-  assertEquals(result, 'Hello "World"!');
+  assertEquals(result, 'Hello "\\"World\\""!');
 });
 
 Deno.test('renderTemplate - multiple variables', () => {
   const template = 'set ${varName} to ${value}';
   const result = renderTemplate(template, { varName: 'count', value: 42 });
-  assertEquals(result, 'set "count" to 42');
+  assertEquals(result, 'set "\\"count\\"" to "42"');
 });
 
 Deno.test('renderTemplate - with array', () => {
   const template = 'set items to ${list}';
   const result = renderTemplate(template, { list: ['a', 'b', 'c'] });
-  assertEquals(result, 'set items to {"a", "b", "c"}');
+  assertEquals(result, 'set items to "[\\"a\\",\\"b\\",\\"c\\"]"');
 });
 
 Deno.test('renderTemplate - with object', () => {
   const template = 'make new item with properties ${props}';
   const result = renderTemplate(template, { props: { name: 'test', enabled: true } });
-  assertEquals(result, 'make new item with properties {name:"test", enabled:true}');
+  assertEquals(result, 'make new item with properties "{\\"name\\":\\"test\\",\\"enabled\\":true}"');
 });
 
 Deno.test('renderTemplate - undefined variable throws', () => {
@@ -163,7 +163,7 @@ Deno.test('renderTemplate - undefined variable throws', () => {
 Deno.test('renderTemplate - variable with whitespace', () => {
   const template = 'set x to ${ name }';
   const result = renderTemplate(template, { name: 'test' });
-  assertEquals(result, 'set x to "test"');
+  assertEquals(result, 'set x to "\\"test\\""');
 });
 
 Deno.test('renderTemplate - complex template', () => {
@@ -178,7 +178,7 @@ Deno.test('renderTemplate - complex template', () => {
     items: ['file1.txt', 'file2.txt'],
   });
 
-  // Check that it contains expected parts
-  assertEquals(result.includes('"My Notebook"'), true);
-  assertEquals(result.includes('{"file1.txt", "file2.txt"}'), true);
+  // Check that it contains expected JSON strings (escaped for AppleScript)
+  assertEquals(result.includes('"\\"My Notebook\\""'), true);
+  assertEquals(result.includes('"[\\"file1.txt\\",\\"file2.txt\\"]"'), true);
 });
