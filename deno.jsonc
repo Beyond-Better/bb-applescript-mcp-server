@@ -1,6 +1,6 @@
 {
   "name": "@beyondbetter/bb-applescript-mcp-server",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "MCP server interact with macOS applications through AppleScript",
   "license": "MIT",
   "copyright": "2025 - Beyond Better <charlie@beyondbetter.app>",
@@ -12,6 +12,7 @@
     "dev": "deno run --allow-all --unstable-kv --watch ./server/main.ts",
     "test": "deno test --allow-all ./server/tests/",
     "test:all": "deno test --allow-all ./server/tests/",
+    "test:file": "deno test --allow-all",
     "mcp-inspector": "npx @modelcontextprotocol/inspector",
     "check": "deno check ./server/main.ts",
     "check:all": "deno check ./server/main.ts ./server/tests/**/*.ts",
@@ -25,8 +26,11 @@
     "tool:test:file": "deno test --allow-all --unstable-kv --coverage=coverage ",
     "tool:format": "deno fmt ./server/ ./server/tests/"
   },
+  // use `importMap` for local testing
+  //"importMap": "./import_map.json",
+  // use `imports` in real app
   "imports": {
-    "@beyondbetter/bb-mcp-server": "jsr:@beyondbetter/bb-mcp-server@^0.1.15",
+    "@beyondbetter/bb-mcp-server": "jsr:@beyondbetter/bb-mcp-server@^0.1.18",
     "@std/assert": "jsr:@std/assert@^1.0.0",
     "@std/encoding/base64": "jsr:@std/encoding@^1.0.0/base64",
     "@std/fs/walk": "jsr:@std/fs@^1.0.0/walk",

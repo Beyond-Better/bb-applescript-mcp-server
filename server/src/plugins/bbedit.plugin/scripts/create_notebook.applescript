@@ -2,19 +2,24 @@
 	Create BBEdit Notebook
 	Creates a new notebook with optional initial content
 	
-	Template Variables:
+	Template Variables (all JSON strings, parsed with parseValue):
 		${name} - Notebook name (required)
 		${location} - Save location (optional, default: ~/Documents/BBEdit Notebooks/)
 		${contentJson} - JSON array of content items (optional)
 		${shouldOpen} - Whether to open the notebook after creation (optional, default: true)
 *)
 
-tell application "BBEdit"
+-- Parse JSON inputs
+set notebookName to parseValue(${name})
+set saveLocation to parseValue(${location})
+set contentItems to parseValue(${contentJson})
+set shouldOpenNotebook to parseValue(${shouldOpen})
+
+tell application "BBEdit"	
 	-- Create the notebook
-	set newNotebook to make new notebook with properties {name:${name}}
+	set newNotebook to make new notebook with properties {name:notebookName}
 	
 	-- Add content if provided
-	set contentItems to ${contentJson}
 	if contentItems is not missing value and contentItems is not "[]" then
 		repeat with contentItem in contentItems
 			-- contentItem should be a record with 'type' and 'data' properties
@@ -24,7 +29,6 @@ tell application "BBEdit"
 	end if
 	
 	-- Save the notebook if location is specified
-	set saveLocation to ${location}
 	if saveLocation is not missing value and saveLocation is not "" then
 		try
 			set saveFolder to POSIX file saveLocation as alias
@@ -46,7 +50,6 @@ tell application "BBEdit"
 	end try
 	
 	-- Optionally open the notebook
-	set shouldOpenNotebook to ${shouldOpen}
 	if shouldOpenNotebook is missing value or shouldOpenNotebook is true then
 		-- Notebook is already open when created
 		activate
@@ -56,7 +59,7 @@ tell application "BBEdit"
 			close window 1
 		end try
 	end if
-	
-	-- Return success with notebook info
-	return "{\"success\":true,\"notebookName\":\"" & (name of newNotebook) & "\",\"notebookPath\":\"" & notebookInfo & "\"}"
 end tell
+
+-- Return success with notebook info using buildJSONObject
+return buildJSONObject({{"success", true}, {"notebookName", name of newNotebook}, {"notebookPath", notebookInfo}})

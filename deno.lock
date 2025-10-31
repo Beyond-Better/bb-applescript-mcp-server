@@ -1,18 +1,16 @@
 {
   "version": "5",
   "specifiers": {
-    "jsr:@beyondbetter/bb-mcp-server@~0.1.15": "0.1.15",
+    "jsr:@beyondbetter/bb-mcp-server@~0.1.18": "0.1.18",
     "jsr:@std/assert@1": "1.0.15",
     "jsr:@std/datetime@~0.225.4": "0.225.5",
     "jsr:@std/dotenv@~0.225.3": "0.225.5",
     "jsr:@std/encoding@1": "1.0.10",
     "jsr:@std/fmt@^1.0.6": "1.0.8",
-    "jsr:@std/fs@1": "1.0.19",
     "jsr:@std/fs@^1.0.16": "1.0.19",
     "jsr:@std/internal@^1.0.10": "1.0.12",
     "jsr:@std/internal@^1.0.12": "1.0.12",
     "jsr:@std/internal@^1.0.9": "1.0.12",
-    "jsr:@std/path@*": "1.1.2",
     "jsr:@std/path@1": "1.1.2",
     "jsr:@std/path@^1.0.8": "1.1.2",
     "jsr:@std/path@^1.1.1": "1.1.2",
@@ -29,8 +27,8 @@
     "npm:zod@^3.22.4": "3.25.76"
   },
   "jsr": {
-    "@beyondbetter/bb-mcp-server@0.1.15": {
-      "integrity": "822da25ff75d91891af66beb9cdecdf52b812681ee5bd175dfa4e8da1f711300",
+    "@beyondbetter/bb-mcp-server@0.1.18": {
+      "integrity": "206a92689fe89b6fde738399e62c7cf8ee2877ebb6ef24850ab31bbab8e3afcf",
       "dependencies": [
         "jsr:@std/datetime",
         "jsr:@std/dotenv",
@@ -659,7 +657,7 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@beyondbetter/bb-mcp-server@~0.1.15",
+      "jsr:@beyondbetter/bb-mcp-server@~0.1.18",
       "jsr:@std/assert@1",
       "jsr:@std/encoding@1",
       "jsr:@std/fs@1",

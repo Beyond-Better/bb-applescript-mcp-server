@@ -137,15 +137,24 @@ export async function executeScript(
       throw new Error('Template variables required for template-based script');
     }
 
-    const rendered = renderTemplate(script.content, variables);
+    // Prepend JSON utilities before rendering
+    const contentWithJson = appendJsonUtilities(script.content);
+    const rendered = renderTemplate(contentWithJson, variables);
     logger?.debug('Rendered template script', {
       variables: Object.keys(variables),
       lines: rendered.split('\n').length,
     });
 
     return compileAndRun(rendered, timeout, logger);
+  } else if (script.content) {
+    // Non-template source script - compile with JSON utilities and run
+    const contentWithJson = appendJsonUtilities(script.content);
+    logger?.debug('Compiling script with JSON utilities', {
+      lines: contentWithJson.split('\n').length,
+    });
+    return compileAndRun(contentWithJson, timeout, logger);
   } else {
-    // Run source script directly
+    // Fallback: run source script directly from file (shouldn't normally reach here)
     const options: any = { script: script.path };
     if (args !== undefined) options.args = args;
     if (timeout !== undefined) options.timeout = timeout;
@@ -292,6 +301,224 @@ async function executeCompiledInlinedScript(
 }
 
 /**
+ * Prepend JSON utility functions to a script
+ */
+function appendJsonUtilities(content: string): string {
+  const jsonUtilities = `
+-- JSON Utilities (auto-injected)
+(*
+================================================================================
+JSON Parser for AppleScript
+================================================================================
+
+Description:
+    Reliable JSON parsing and construction for AppleScript using JavaScript
+    runtime for parsing and manual construction for stringification. Avoids
+    AppleScript record iteration limitations with explicit key-value pairs.
+
+Functions:
+    • parseValue(jsonString) - Parse JSON string to AppleScript data structures
+    • buildJSONObject(pairs) - Build JSON object from list of {key, value} pairs
+    • buildJSONArray(items) - Build JSON array from list of items
+    • jsonValue(val) - Convert AppleScript value to JSON string representation
+
+Requirements:
+    • macOS 10.10+ (for JavaScript runtime support)
+    • osascript compatible
+
+Usage Examples:
+    -- Parse JSON
+    set data to parseValue("[\\"a\\",\\"b\\",\\"c\\"]")
+    
+    -- Build JSON object
+    set json to buildJSONObject({{"name", "Alice"}, {"age", 30}, {"active", true}})
+    
+    -- Build JSON array
+    set json to buildJSONArray({"item1", "item2", "item3"})
+    
+    -- Nested structures
+    set json to buildJSONObject({{"items", {"a", "b"}}, {"count", 2}})
+
+Implementation Notes:
+    - parseValue uses JavaScript runtime (~50ms overhead, handles all edge cases)
+    - JSON construction is manual to avoid AppleScript record iteration issues
+    - Properly escapes special characters (backslashes (\\), quotes (""), newlines, tabs)
+    - Handles nested arrays and null values
+    - Type-safe conversions for strings, numbers, booleans, lists
+
+Author: Beyond Better (CNG)
+Created: 2024
+Version: 1.0
+
+Performance:
+    - Parse: ~50-100ms per call (JavaScript overhead)
+    - Build: <5ms for typical structures (native AppleScript)
+
+================================================================================
+
+Examples:
+
+set jsonStr to buildJSONObject({{"itemCount", 3}, {"enabled", true}, {"items", {"a", "b"}}})
+-- Result: {"itemCount":3,"enabled":true,"items":["a","b"]}
+
+-- Build JSON array
+set jsonArr to buildJSONArray({"id1", "id2", "id3"})
+-- Result: ["id1","id2","id3"]
+
+-- Parse JSON
+set jsonData to parseValue("[\\"x\\",\\"y\\",\\"z\\"]")
+-- Result: {"x", "y", "z"}
+
+-- Nested structures
+set complex to buildJSONObject({{"user", "alice"}, {"roles", {"admin", "user"}}, {"active", true}})
+-- Result: {"user":"alice","roles":["admin","user"],"active":true}
+
+
+*)
+
+use scripting additions
+
+-- Parse JSON string to AppleScript data structures
+on parseJSON(jsonString)
+	try
+		return run script "JSON.parse(" & quoted form of jsonString & ");" in "JavaScript"
+	on error errorMessage
+		error "JSON parse failed: " & errorMessage
+	end try
+end parseJSON
+-- Generic parse function (recommended for template variables)
+-- Handles null, scalars, arrays, and objects gracefully
+on parseValue(value)
+	-- Handle missing/empty
+	if value is missing value or value is "" then
+		return missing value
+	end if
+	
+	-- Special case: the literal string "null" should become missing value
+	if value is "null" then
+		return missing value
+	end if
+	
+	-- Special case: the literal strings "true" and "false"
+	if value is "true" then
+		return true
+	end if
+	if value is "false" then
+		return false
+	end if
+	
+	-- Try JSON parse first
+	try
+		set result to parseJSON(value)
+		-- JavaScript null becomes missing value in AppleScript automatically
+		return result
+	on error parseError
+		-- JSON parse failed or returned unexpected result
+		-- Try to handle as a simple type
+		
+		-- Check if it's a JSON string (starts and ends with quotes)
+		if value starts with "\\"" and value ends with "\\"" and (length of value) ≥ 2 then
+			-- Strip the outer quotes and unescape
+			if (length of value) is 2 then
+				-- Empty string case: ""
+				return ""
+			else
+				set unquoted to text 2 thru -2 of value
+				-- Unescape common JSON escapes
+				set unquoted to replaceText(unquoted, "\\\\\\\\", "\\\\")
+				set unquoted to replaceText(unquoted, "\\\\\\"", "\\"")
+				set unquoted to replaceText(unquoted, "\\\\n", return)
+				set unquoted to replaceText(unquoted, "\\\\t", tab)
+				return unquoted
+			end if
+		end if
+		
+		-- Check if it's a number
+		try
+			set numValue to value as number
+			return numValue
+		on error
+			-- Not a number, continue
+		end try
+		
+		-- If all else fails, return as-is
+		return value
+	end try
+end parseValue
+
+-- Build JSON object from key-value pairs
+on buildJSONObject(pairs)
+	set jsonParts to {}
+	repeat with pair in pairs
+		set {keyName, val} to pair
+		set end of jsonParts to "\\"" & keyName & "\\":" & jsonValue(val)
+	end repeat
+	return "{" & joinList(jsonParts, ",") & "}"
+end buildJSONObject
+
+-- Build JSON array
+on buildJSONArray(listItems)
+	set jsonItems to {}
+	repeat with listItem in listItems
+		set end of jsonItems to jsonValue(listItem)
+	end repeat
+	return "[" & joinList(jsonItems, ",") & "]"
+end buildJSONArray
+
+-- Convert AppleScript value to JSON value string
+on jsonValue(val)
+	if val is missing value then
+		return "null"
+	else if class of val is boolean then
+		if val then
+			return "true"
+		else
+			return "false"
+		end if
+	else if class of val is number then
+		return val as string
+	else if class of val is string then
+		-- Escape special characters
+		set escaped to val
+		set escaped to replaceText(escaped, "\\\\", "\\\\\\\\")
+		set escaped to replaceText(escaped, "\\"", "\\\\\\"")
+		set escaped to replaceText(escaped, return, "\\\\n")
+		set escaped to replaceText(escaped, tab, "\\\\t")
+		return "\\"" & escaped & "\\""
+	else if class of val is list then
+		return buildJSONArray(val)
+	else
+		-- Fallback for unknown types
+		return "\\"" & (val as string) & "\\""
+	end if
+end jsonValue
+
+-- Helper: Join list with delimiter
+on joinList(theList, delimiter)
+	set oldDelimiters to AppleScript's text item delimiters
+	set AppleScript's text item delimiters to delimiter
+	set resultText to theList as string
+	set AppleScript's text item delimiters to oldDelimiters
+	return resultText
+end joinList
+
+-- Helper: Replace text
+on replaceText(sourceText, findText, replaceWith)
+	set oldDelimiters to AppleScript's text item delimiters
+	set AppleScript's text item delimiters to findText
+	set textItems to text items of sourceText
+	set AppleScript's text item delimiters to replaceWith
+	set resultText to textItems as string
+	set AppleScript's text item delimiters to oldDelimiters
+	return resultText
+end replaceText
+-- End JSON Utilities
+
+`;
+  return content + jsonUtilities;
+}
+
+/**
  * Execute a text AppleScript with optional template rendering
  */
 async function executeTextInlinedScript(
@@ -303,9 +530,12 @@ async function executeTextInlinedScript(
 ): Promise<AppleScriptResult> {
   const hasTemplates = /\$\{[^}]+\}/.test(content);
 
+  // Always prepend JSON utilities at runtime
+  const contentWithJson = appendJsonUtilities(content);
+
   if (hasTemplates && variables) {
     // Render template and compile/run
-    const rendered = renderTemplate(content, variables);
+    const rendered = renderTemplate(contentWithJson, variables);
     logger?.debug('Rendered inlined template script', {
       variables: Object.keys(variables),
       lines: rendered.split('\n').length,
@@ -316,7 +546,7 @@ async function executeTextInlinedScript(
     throw new Error('Template variables required for template-based script');
   } else {
     // No templates - compile and run directly
-    return compileAndRun(content, timeout, logger);
+    return compileAndRun(contentWithJson, timeout, logger);
   }
 }
 

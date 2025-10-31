@@ -13,6 +13,9 @@ coverage/
 tags
 tags.ignore
 
+# for local dev with local bb-mcp-server
+import_map.json
+
 data/
 debug/
 dev-planning/

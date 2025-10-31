@@ -2,7 +2,7 @@
 	Get Extended File Information
 	Gets detailed information about files including Spotlight comments, tags, labels, etc.
 	
-	Parameters:
+	Parameters (all JSON strings):
 		filePath - Path to file or folder
 *)
 
@@ -11,7 +11,8 @@ on run argv
 		return "Error: Missing required parameter (filePath)"
 	end if
 	
-	set filePath to item 1 of argv
+	-- Parse JSON input
+	set filePath to parseValue(item 1 of argv)
 	
 	try
 		set fileItem to POSIX file filePath as alias
@@ -63,22 +64,16 @@ on run argv
 			end if
 		end try
 		
-		-- Build JSON result
-		set resultJson to "{" & ¬
-			"\"path\":\"" & filePath & "\"," & ¬
-			"\"name\":\"" & fileName & "\"," & ¬
-			"\"size\":" & fileSize & "," & ¬
-			"\"kind\":\"" & fileKind & "\"," & ¬
-			"\"isFolder\":" & (isFolder as text) & "," & ¬
-			"\"created\":\"" & (creationDate as text) & "\"," & ¬
-			"\"modified\":\"" & (modificationDate as text) & "\"," & ¬
-			"\"labelIndex\":" & labelIdx & "," & ¬
-			"\"labelName\":\"" & labelName & "\"," & ¬
-			"\"comment\":\"" & fileComment & "\"," & ¬
-			"\"tags\":" & tagsJson & ¬
-			"}"
+		-- Parse tags from JSON if we got them
+		set tagsList to {}
+		if tagsJson is not "[]" then
+			try
+				set tagsList to parseValue(tagsJson)
+			end try
+		end if
 		
-		return resultJson
+		-- Return using buildJSONObject
+		return buildJSONObject({{"path", filePath}, {"name", fileName}, {"size", fileSize}, {"kind", fileKind}, {"isFolder", isFolder}, {"created", creationDate as string}, {"modified", modificationDate as string}, {"labelIndex", labelIdx}, {"labelName", labelName}, {"comment", fileComment}, {"tags", tagsList}})
 		
 	on error errMsg number errNum
 		return "Error (" & errNum & "): " & errMsg

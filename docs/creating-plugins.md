@@ -49,25 +49,66 @@ src/plugins/mail.plugin/
 Edit `scripts/send_email.applescript`:
 
 ```applescript
--- Template variables: ${to}, ${subject}, ${body}
+-- Template variables (all JSON strings): ${to}, ${subject}, ${body}
+
+-- ⚠️ CRITICAL: Parse JSON inputs OUTSIDE tell blocks!
+set recipient to parseValue(${to})
+set emailSubject to parseValue(${subject})
+set emailBody to parseValue(${body})
+
+-- THEN use the parsed values in tell block
 tell application "Mail"
+    
     -- Create new message
-    set newMessage to make new outgoing message with properties {subject:${subject}, content:${body}, visible:true}
+    set newMessage to make new outgoing message with properties {subject:emailSubject, content:emailBody, visible:true}
     
     -- Add recipient
     tell newMessage
-        make new to recipient with properties {address:${to}}
+        make new to recipient with properties {address:recipient}
     end tell
     
-    -- Return success (user must click Send manually for safety)
-    return "{\"success\":true,\"message\":\"Email created and ready to send\"}"
+    -- Return using buildJSONObject
+    return buildJSONObject({{"success", true}, {"message", "Email created and ready to send"}})
 end tell
 ```
 
 **Key points:**
-- Use `${variableName}` for template variables
-- Return JSON for structured results
-- The script loader automatically handles type conversion and escaping
+- ALL template variables are JSON strings - use `parseValue()` to parse them
+- Use `buildJSONObject()` or `buildJSONArray()` for return values
+- JSON utilities are automatically injected - no need to define them
+
+### Common Pitfall: Data Structure Format
+
+**⚠️ CRITICAL - Most Common Error:**
+
+The `buildJSONObject()` function expects a **list of pairs**, NOT AppleScript records:
+
+**❌ WRONG:**
+```applescript
+-- Using AppleScript record syntax (colon notation)
+set result to {name:"Alice", age:30}
+return buildJSONObject(result)
+-- ERROR: "Can't make some data into the expected type" (-1700)
+```
+
+**✅ CORRECT:**
+```applescript
+-- Using list of pairs (comma notation)
+set result to {{"name", "Alice"}, {"age", 30}}
+return buildJSONObject(result)
+-- Works correctly!
+```
+
+**For nested structures:**
+```applescript
+-- Build inner structure as list of pairs
+set address to {{"street", "123 Main St"}, {"city", "Boston"}}
+
+-- Use in outer structure
+set person to {{"name", "Alice"}, {"address", address}}
+
+return buildJSONObject(person)
+```
 
 ### Step 3: Create the Plugin File
 
@@ -210,12 +251,24 @@ Send an email to test@example.com with subject "Hello" and body "Testing!"
 
 ## Understanding Template Variables
 
-The `findAndExecuteScript` function automatically converts JavaScript values to AppleScript:
+**IMPORTANT**: All template variables are JSON strings that must be parsed in AppleScript.
+
+The `findAndExecuteScript` function automatically JSON.stringifies all template variables. Your AppleScript must use `parseValue()` to parse them:
+
+```applescript
+-- Parse JSON inputs (auto-injected function)
+set myValue to parseValue(${variableName})
+```
+
+The JSON parsing utilities are automatically injected into every script at runtime. See [JSON-STANDARDIZATION.md](./JSON-STANDARDIZATION.md) for complete details.
+
+### Type Conversion Examples
 
 ### String Variables
 ```applescript
 -- Template: ${name}
 -- JavaScript: { name: "John Doe" }
+-- In script: set userName to parseValue(${name})
 -- Result: "John Doe"
 ```
 
@@ -223,6 +276,7 @@ The `findAndExecuteScript` function automatically converts JavaScript values to 
 ```applescript
 -- Template: ${recipients}
 -- JavaScript: { recipients: ["alice@example.com", "bob@example.com"] }
+-- In script: set recipientList to parseValue(${recipients})
 -- Result: {"alice@example.com", "bob@example.com"}
 ```
 
@@ -230,6 +284,7 @@ The `findAndExecuteScript` function automatically converts JavaScript values to 
 ```applescript
 -- Template: ${settings}
 -- JavaScript: { settings: { theme: "dark", size: 14 } }
+-- In script: set settingsRecord to parseValue(${settings})
 -- Result: {theme:"dark", size:14}
 ```
 
@@ -237,6 +292,8 @@ The `findAndExecuteScript` function automatically converts JavaScript values to 
 ```applescript
 -- Template: ${enabled} and ${count}
 -- JavaScript: { enabled: true, count: 42 }
+-- In script: set isEnabled to parseValue(${enabled})
+-- In script: set itemCount to parseValue(${count})
 -- Result: true and 42
 ```
 
@@ -244,6 +301,7 @@ The `findAndExecuteScript` function automatically converts JavaScript values to 
 ```applescript
 -- Template: ${optional}
 -- JavaScript: { optional: null }
+-- In script: set optionalValue to parseValue(${optional})
 -- Result: missing value
 ```
 
