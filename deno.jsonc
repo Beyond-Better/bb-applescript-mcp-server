@@ -1,6 +1,6 @@
 {
   "name": "@beyondbetter/bb-applescript-mcp-server",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "MCP server interact with macOS applications through AppleScript",
   "license": "MIT",
   "copyright": "2025 - Beyond Better <charlie@beyondbetter.app>",
