@@ -12,6 +12,7 @@
     "dev": "deno run --allow-all --unstable-kv --watch ./server/main.ts",
     "test": "deno test --allow-all ./server/tests/",
     "test:all": "deno test --allow-all ./server/tests/",
+    "test:file": "deno test --allow-all",
     "mcp-inspector": "npx @modelcontextprotocol/inspector",
     "check": "deno check ./server/main.ts",
     "check:all": "deno check ./server/main.ts ./server/tests/**/*.ts",

@@ -1,12 +1,12 @@
 /**
  * Apple Mail Plugin
  * Provides tools for reading, organizing, and managing emails via Mail.app
- * 
+ *
  * Current Tools:
  * - read_mail: Search and retrieve email messages with account/mailbox filtering
  * - get_mail_structure: List accounts and mailboxes in hierarchical structure
  * - mark_mail: Mark messages with flags (read/unread, flagged, deleted, junk)
- * 
+ *
  * TODO: Future tools to implement:
  * - send_mail: Compose and send emails with attachments
  * - move_mail: Move messages between mailboxes
@@ -15,7 +15,7 @@
  * - reply_to_mail: Create reply messages
  * - forward_mail: Forward messages
  * - get_mail_attachments: List or save attachments from messages
- * 
+ *
  * TODO: Future filtering enhancements (see inline comments):
  * - Option 2: Qualified mailbox syntax (e.g., 'work:inbox', 'personal:customers')
  * - Option 3: Account-mailbox pair objects for maximum precision
@@ -54,11 +54,15 @@ const readMailInputSchema = {
   accounts: z
     .array(z.string())
     .optional()
-    .describe('Filter by specific account names (searches all accounts if not specified). Results include messages from (any specified account) AND (any specified mailbox) - Cartesian product.'),
+    .describe(
+      'Filter by specific account names (searches all accounts if not specified). Results include messages from (any specified account) AND (any specified mailbox) - Cartesian product.',
+    ),
   mailboxes: z
     .array(z.string())
     .optional()
-    .describe('Filter by specific mailbox names (searches all mailboxes if not specified). Results include messages from (any specified account) AND (any specified mailbox) - Cartesian product.'),
+    .describe(
+      'Filter by specific mailbox names (searches all mailboxes if not specified). Results include messages from (any specified account) AND (any specified mailbox) - Cartesian product.',
+    ),
   sortBy: z
     .enum(['date-newest', 'date-oldest', 'sender', 'subject'])
     .optional()
@@ -203,7 +207,7 @@ export default {
           // This would allow precise cross-account mailbox targeting:
           //   mailboxes: ['work:inbox', 'personal:customers', 'inbox']
           // Last entry 'inbox' would search across all accounts
-          
+
           // TODO: Add support for account-mailbox pair objects (Option 3)
           // Example: mailboxFilters: [{ account: 'work', mailbox: 'inbox' }, ...]
           // This provides maximum flexibility but is more verbose
@@ -367,8 +371,7 @@ export default {
       'mark_mail',
       {
         title: 'Mark Mail',
-        description:
-          'Mark email messages with specific flags (read/unread, flagged, deleted, junk).',
+        description: 'Mark email messages with specific flags (read/unread, flagged, deleted, junk).',
         category: 'Mail',
         inputSchema: markMailInputSchema,
       },
@@ -462,90 +465,90 @@ export default {
 
     // Register test_sender_filter tool (only if DEBUG_MAIL_TOOLS is enabled)
     const enableDebugTools = Deno.env.get('DEBUG_MAIL_TOOLS') === 'true';
-    
+
     if (enableDebugTools) {
       toolRegistry.registerTool(
         'test_sender_filter',
-      {
-        title: 'Test Sender Filter',
-        description:
-          'Diagnostic tool to test sender filtering. Shows actual sender values from messages and tests different matching strategies (exact, contains, starts with, ends with) to diagnose why filters might not be working.',
-        category: 'Mail',
-        inputSchema: testSenderFilterInputSchema,
-      },
-      async (args: TestSenderFilterArgs) => {
-        try {
-          logger.info('Testing sender filter:', {
-            accountName: args.accountName,
-            mailboxName: args.mailboxName,
-            senderSearch: args.senderSearch,
-          });
+        {
+          title: 'Test Sender Filter',
+          description:
+            'Diagnostic tool to test sender filtering. Shows actual sender values from messages and tests different matching strategies (exact, contains, starts with, ends with) to diagnose why filters might not be working.',
+          category: 'Mail',
+          inputSchema: testSenderFilterInputSchema,
+        },
+        async (args: TestSenderFilterArgs) => {
+          try {
+            logger.info('Testing sender filter:', {
+              accountName: args.accountName,
+              mailboxName: args.mailboxName,
+              senderSearch: args.senderSearch,
+            });
 
-          const variables: Record<string, any> = {
-            accountName: args.accountName ?? null,
-            mailboxName: args.mailboxName ?? null,
-            senderSearch: args.senderSearch ?? null,
-          };
-
-          const result = await findAndExecuteScript(
-            pluginDir,
-            'tests/test_sender_filter',
-            variables,
-            undefined,
-            args.timeout,
-            logger,
-          );
-
-          if (result.success) {
-            let scriptResult;
-            try {
-              scriptResult = typeof result.result === 'string' ? JSON.parse(result.result) : result.result;
-            } catch {
-              scriptResult = { output: result.result };
-            }
-
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify(
-                    {
-                      success: true,
-                      ...(typeof scriptResult === 'object' && scriptResult !== null
-                        ? scriptResult
-                        : { output: scriptResult }),
-                      metadata: result.metadata,
-                    },
-                    null,
-                    2,
-                  ),
-                },
-              ],
+            const variables: Record<string, any> = {
+              accountName: args.accountName ?? null,
+              mailboxName: args.mailboxName ?? null,
+              senderSearch: args.senderSearch ?? null,
             };
-          } else {
+
+            const result = await findAndExecuteScript(
+              pluginDir,
+              'tests/test_sender_filter',
+              variables,
+              undefined,
+              args.timeout,
+              logger,
+            );
+
+            if (result.success) {
+              let scriptResult;
+              try {
+                scriptResult = typeof result.result === 'string' ? JSON.parse(result.result) : result.result;
+              } catch {
+                scriptResult = { output: result.result };
+              }
+
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: JSON.stringify(
+                      {
+                        success: true,
+                        ...(typeof scriptResult === 'object' && scriptResult !== null
+                          ? scriptResult
+                          : { output: scriptResult }),
+                        metadata: result.metadata,
+                      },
+                      null,
+                      2,
+                    ),
+                  },
+                ],
+              };
+            } else {
+              return {
+                content: [
+                  {
+                    type: 'text',
+                    text: JSON.stringify(result, null, 2),
+                  },
+                ],
+                isError: true,
+              };
+            }
+          } catch (error) {
+            logger.error('Failed to test sender filter:', error);
             return {
               content: [
                 {
                   type: 'text',
-                  text: JSON.stringify(result, null, 2),
+                  text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
                 },
               ],
               isError: true,
             };
           }
-        } catch (error) {
-          logger.error('Failed to test sender filter:', error);
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-              },
-            ],
-            isError: true,
-          };
-        }
-      },
+        },
       );
       logger.info('Mail plugin initialized with DEBUG tool: test_sender_filter');
     }
